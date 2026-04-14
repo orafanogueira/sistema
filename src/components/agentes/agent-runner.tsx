@@ -100,7 +100,7 @@ export function AgentRunner({ agent, clientes }: Props) {
 
       {err && <Card><CardContent className="p-4 text-sm text-red-400">{err}</CardContent></Card>}
 
-      {(output || outputData) && (
+      {(Boolean(output) || Boolean(outputData)) && (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -117,7 +117,7 @@ export function AgentRunner({ agent, clientes }: Props) {
           <CardContent>
             {output && output.trim() ? (
               <div className="prose prose-invert max-w-none text-sm whitespace-pre-wrap">{output}</div>
-            ) : outputData && Object.keys(outputData).length > 0 ? (
+            ) : outputData && typeof outputData === "object" && Object.keys(outputData as Record<string, unknown>).length > 0 ? (
               <pre className="text-xs bg-secondary/40 p-4 rounded-lg overflow-x-auto">{JSON.stringify(outputData, null, 2)}</pre>
             ) : (
               <div className="text-sm text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 rounded-md p-3">
