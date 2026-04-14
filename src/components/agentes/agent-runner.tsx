@@ -100,7 +100,7 @@ export function AgentRunner({ agent, clientes }: Props) {
 
       {err && <Card><CardContent className="p-4 text-sm text-red-400">{err}</CardContent></Card>}
 
-      {output && (
+      {(output || outputData) && (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -115,10 +115,14 @@ export function AgentRunner({ agent, clientes }: Props) {
             </div>
           </CardHeader>
           <CardContent>
-            {outputData ? (
+            {output && output.trim() ? (
+              <div className="prose prose-invert max-w-none text-sm whitespace-pre-wrap">{output}</div>
+            ) : outputData && Object.keys(outputData).length > 0 ? (
               <pre className="text-xs bg-secondary/40 p-4 rounded-lg overflow-x-auto">{JSON.stringify(outputData, null, 2)}</pre>
             ) : (
-              <div className="prose prose-invert max-w-none text-sm whitespace-pre-wrap">{output}</div>
+              <div className="text-sm text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 rounded-md p-3">
+                ⚠️ IA nao retornou nada. Verifica se ANTHROPIC_API_KEY esta configurada na Vercel (Settings - Environment Variables).
+              </div>
             )}
           </CardContent>
         </Card>

@@ -18,15 +18,36 @@ export async function aiChat(opts: {
   maxTokens?: number;
 }) {
   const client = getAnthropic();
-  const res = await client.messages.create({
-    model: opts.model || "claude-sonnet-4-6",
-    max_tokens: opts.maxTokens || 1024,
-    temperature: opts.temperature ?? 0.7,
-    system: opts.systemPrompt,
-    messages: opts.messages.map((m) => ({ role: m.role, content: m.content })),
-  });
-  const textBlock = res.content.find((b) => b.type === "text");
-  return textBlock && "text" in textBlock ? textBlock.text : "";
+  const modelPref = opts.model || process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5";
+
+  try {
+    const res = await client.messages.create({
+      model: modelPref,
+      max_tokens: opts.maxTokens || 1024,
+      temperature: opts.temperature ?? 0.7,
+      system: opts.systemPrompt,
+      messages: opts.messages.map((m) => ({ role: m.role, content: m.content })),
+    });
+    const textBlock = res.content.find((b) => b.type === "text");
+    const text = textBlock && "text" in textBlock ? textBlock.text : "";
+    if (!text) throw new Error(`IA respondeu vazio (stop_reason: ${res.stop_reason})`);
+    return text;
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "erro desconhecido";
+    // tenta fallback pra modelo mais antigo/disponivel
+    if (msg.includes("model") || msg.includes("not_found") || msg.includes("404")) {
+      const res = await client.messages.create({
+        model: "claude-3-5-sonnet-latest",
+        max_tokens: opts.maxTokens || 1024,
+        temperature: opts.temperature ?? 0.7,
+        system: opts.systemPrompt,
+        messages: opts.messages.map((m) => ({ role: m.role, content: m.content })),
+      });
+      const textBlock = res.content.find((b) => b.type === "text");
+      return textBlock && "text" in textBlock ? textBlock.text : "";
+    }
+    throw e;
+  }
 }
 
 export async function aiStreamChat(opts: {
