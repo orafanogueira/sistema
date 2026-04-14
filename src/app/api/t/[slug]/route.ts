@@ -58,8 +58,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
     browser: device.browser,
   });
 
-  // incrementa total (fire-and-forget)
-  await supabase.rpc("noop", {}).catch(() => {});
+  // incrementa total
   await supabase.from("short_links")
     .update({ clicks_total: (link.clicks_total || 0) + 1 })
     .eq("id", link.id);
