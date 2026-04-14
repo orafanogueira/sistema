@@ -1,0 +1,15 @@
+node_modules
+.next
+out
+build
+dist
+.env*.local
+.env
+.vercel
+*.log
+.DS_Store
+.turbo
+coverage
+/supabase/.temp
+
+.vercel
