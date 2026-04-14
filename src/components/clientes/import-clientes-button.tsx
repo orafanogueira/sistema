@@ -1,15 +1,24 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Loader2, Download } from "lucide-react";
 
-export function ImportClientesButton({ totalAtual }: { totalAtual: number }) {
+export function ImportClientesButton() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const [totalAtual, setTotalAtual] = useState<number | null>(null);
 
-  if (totalAtual >= 30) return null; // ja importou
+  useEffect(() => {
+    fetch("/api/clientes")
+      .then((r) => r.json())
+      .then((data) => setTotalAtual(Array.isArray(data) ? data.length : 0))
+      .catch(() => setTotalAtual(0));
+  }, []);
+
+  if (totalAtual === null) return null;
+  if (totalAtual >= 30) return null;
 
   const importar = async () => {
     setLoading(true); setResult(null);
