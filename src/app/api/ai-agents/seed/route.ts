@@ -1,23 +1,37 @@
 import { NextResponse } from "next/server";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/server";
 import { AGENT_CATALOG } from "@/lib/ai-agents/catalog";
 
 /**
  * Popula a tabela agent_catalog com os 27 agentes pre-configurados.
  * Roda 1x apos a migration. Idempotente (upsert por key).
+ * Usa service_role client puro (sem cookies) pra garantir bypass de RLS.
  */
-export async function POST(req: Request) {
-  const auth = req.headers.get("authorization");
-  if (process.env.CRON_SECRET && auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    // permite tambem owner do tenant chamar via UI
-    const supabase = await createServiceClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return new NextResponse("unauthorized", { status: 401 });
+export async function POST() {
+  // 1. valida usuario logado (via client normal com cookies)
+  const authClient = await createClient();
+  const { data: { user } } = await authClient.auth.getUser();
+  if (!user) return new NextResponse("unauthorized - faca login primeiro", { status: 401 });
+
+  // 2. cria client service_role PURO (sem cookies do usuario)
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) {
+    return NextResponse.json({
+      error: "env vars ausentes",
+      has_url: !!url,
+      has_service_key: !!serviceKey,
+    }, { status: 500 });
   }
 
-  const supabase = await createServiceClient();
+  const supabase = createSupabaseClient(url, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 
-  let inserted = 0, updated = 0;
+  const errors: { key: string; error: string }[] = [];
+  let inserted = 0;
+
   for (const a of AGENT_CATALOG) {
     const { error } = await supabase.from("agent_catalog").upsert({
       key: a.key,
@@ -33,14 +47,20 @@ export async function POST(req: Request) {
       position: a.position,
       is_pro: a.is_pro,
     }, { onConflict: "key" });
+
     if (error) {
-      console.error(`Erro ao seed ${a.key}:`, error.message);
+      errors.push({ key: a.key, error: error.message });
       continue;
     }
     inserted++;
   }
 
-  return NextResponse.json({ total: AGENT_CATALOG.length, processed: inserted });
+  return NextResponse.json({
+    total: AGENT_CATALOG.length,
+    processed: inserted,
+    errors: errors.slice(0, 5),
+    total_errors: errors.length,
+  });
 }
 
 export async function GET() {
