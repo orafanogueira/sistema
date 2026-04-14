@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Users, KanbanSquare, Megaphone, Handshake, Palette,
   Video, MessagesSquare, Mail, Bot, Plug, Settings, Building2,
   Target, Car, Zap, Workflow, Sparkles, Calendar, Image, Bell,
-  Activity, Link2,
+  Activity, Link2, FileText, DollarSign, Receipt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +31,11 @@ const NAV = [
   { section: "Automotivo", items: [
     { href: "/estoque", label: "Estoque", icon: Car },
     { href: "/vendedores", label: "Vendedores", icon: Handshake },
+  ]},
+  { section: "Financeiro", items: [
+    { href: "/financeiro", label: "Financeiro", icon: DollarSign },
+    { href: "/contratos", label: "Contratos", icon: FileText },
+    { href: "/cobrancas", label: "Cobrancas", icon: Receipt },
   ]},
   { section: "IA", items: [
     { href: "/agentes-ia", label: "Agentes IA", icon: Sparkles },
