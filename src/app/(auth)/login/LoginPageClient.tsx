@@ -12,7 +12,7 @@ import { Mail, Lock, Loader2 } from "lucide-react";
 export default function LoginPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/clientes";
+  const next = searchParams.get("next") || "/dashboard";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

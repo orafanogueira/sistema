@@ -4,14 +4,33 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, KanbanSquare, Megaphone, Handshake, Palette,
   Video, MessagesSquare, Mail, Bot, Plug, Settings, Building2,
+  Target, Car, Zap, Workflow, Sparkles, Calendar, Image, Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { section: "Geral", items: [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/dashboard", label: "Dashboard CEO", icon: LayoutDashboard },
+    { href: "/alertas", label: "Alertas", icon: Bell },
     { href: "/clientes", label: "Clientes", icon: Users },
-    { href: "/kanban", label: "Kanban", icon: KanbanSquare },
+  ]},
+  { section: "Conteudo", items: [
+    { href: "/social", label: "Social Media", icon: Image },
+    { href: "/calendario", label: "Calendario", icon: Calendar },
+  ]},
+  { section: "CRM", items: [
+    { href: "/leads", label: "Leads", icon: Target },
+    { href: "/pipelines", label: "Pipelines", icon: Workflow },
+    { href: "/automacoes", label: "Automacoes", icon: Zap },
+    { href: "/kanban", label: "Kanban (tarefas)", icon: KanbanSquare },
+  ]},
+  { section: "Automotivo", items: [
+    { href: "/estoque", label: "Estoque", icon: Car },
+    { href: "/vendedores", label: "Vendedores", icon: Handshake },
+  ]},
+  { section: "IA", items: [
+    { href: "/agentes-ia", label: "Agentes IA", icon: Sparkles },
+    { href: "/atendimento-ia", label: "Atendimento IA", icon: Bot },
   ]},
   { section: "Times", items: [
     { href: "/times/trafego", label: "Trafego Pago", icon: Megaphone },
@@ -19,8 +38,7 @@ const NAV = [
     { href: "/times/social", label: "Social Media", icon: Palette },
     { href: "/times/video", label: "Video Maker", icon: Video },
   ]},
-  { section: "Automacao", items: [
-    { href: "/atendimento-ia", label: "Atendimento IA", icon: Bot },
+  { section: "Atendimento", items: [
     { href: "/followup", label: "Follow-up", icon: Mail },
     { href: "/conversas", label: "Conversas", icon: MessagesSquare },
   ]},
