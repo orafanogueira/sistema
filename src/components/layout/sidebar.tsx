@@ -5,6 +5,7 @@ import {
   LayoutDashboard, Users, KanbanSquare, Megaphone, Handshake, Palette,
   Video, MessagesSquare, Mail, Bot, Plug, Settings, Building2,
   Target, Car, Zap, Workflow, Sparkles, Calendar, Image, Bell,
+  Activity, Link2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +21,9 @@ const NAV = [
   ]},
   { section: "CRM", items: [
     { href: "/leads", label: "Leads", icon: Target },
+    { href: "/rastreamento", label: "Rastreamento", icon: Activity },
+    { href: "/jornadas", label: "Jornadas", icon: Workflow },
+    { href: "/links-rastreaveis", label: "Links", icon: Link2 },
     { href: "/pipelines", label: "Pipelines", icon: Workflow },
     { href: "/automacoes", label: "Automacoes", icon: Zap },
     { href: "/kanban", label: "Kanban (tarefas)", icon: KanbanSquare },
