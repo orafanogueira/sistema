@@ -26,6 +26,7 @@ export interface AgentDef {
   position: number;
   output_format: "text" | "markdown" | "json";
   recommended_temperature: number;
+  recommended_model?: string;
   is_pro: boolean;
   default_input_schema: Record<string, { type: string; required?: boolean; description?: string; example?: unknown }>;
   default_system_prompt: string;
