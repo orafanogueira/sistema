@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { aiChat } from "@/lib/integrations/ai";
-import { gerarMusicaSuno } from "@/lib/youtube/piapi-suno";
+import { gerarMusicaSuno } from "@/lib/youtube/suno-api";
 
 export const maxDuration = 300;
 

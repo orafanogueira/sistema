@@ -63,7 +63,7 @@ export function Trilha() {
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Music className="h-4 w-4 text-cyan" /> Gerador de trilha sonora (Udio via PiAPI)</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Music className="h-4 w-4 text-cyan" /> Gerador de trilha sonora (Suno via PiAPI)</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div>
             <Label>Tipo</Label>
@@ -83,7 +83,7 @@ export function Trilha() {
               placeholder="Ex: trilha cinematográfica tensa com piano, estilo documentário investigativo"
               value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} />
             <div className="text-[10px] text-muted-foreground mt-1">
-              IA traduz e otimiza o prompt automaticamente pro Udio (em inglês).
+              IA traduz e otimiza o prompt automaticamente pro Suno (em inglês).
             </div>
             <div className="flex flex-wrap gap-1 mt-2">
               {EXEMPLOS.map((e) => (
@@ -112,7 +112,7 @@ export function Trilha() {
 
           {form.tipo === "musica_completa" && !form.instrumental && (
             <div>
-              <Label>Letra (opcional — se vazio, Udio gera)</Label>
+              <Label>Letra (opcional — se vazio, Suno gera)</Label>
               <Textarea className="mt-1 min-h-[120px]" placeholder="Verse, chorus..."
                 value={form.letra} onChange={(e) => setForm({ ...form, letra: e.target.value })} />
             </div>
@@ -158,7 +158,7 @@ export function Trilha() {
             )}
 
             <div>
-              <Label>Prompt Udio otimizado (inglês)</Label>
+              <Label>Prompt Suno otimizado (inglês)</Label>
               <div className="p-2 bg-background/40 border border-border rounded text-xs font-mono mt-1">
                 {result.prompt_suno}
               </div>
