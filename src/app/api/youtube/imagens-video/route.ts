@@ -62,30 +62,47 @@ async function falImage(prompt: string, modelo: "flux-schnell" | "flux-pro" | "i
 async function geminiImage(prompt: string): Promise<{ data: string; mime: string }> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY ausente no Vercel");
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${key}`;
-  const r = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "16:9" } },
-    }),
-  });
-  if (!r.ok) {
-    const txt = await r.text();
-    throw new Error(`Gemini ${r.status}: ${txt.slice(0, 250)}`);
+
+  // forca proporcao no proprio prompt (Gemini nao tem config oficial de aspect ratio)
+  const finalPrompt = `${prompt}\n\nIMPORTANT: Generate in horizontal 16:9 landscape orientation, widescreen format.`;
+
+  // tenta 2 modelos: estavel primeiro, fallback preview
+  const models = ["gemini-2.5-flash-image", "gemini-2.5-flash-image-preview"];
+  let lastErr = "";
+
+  for (const model of models) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: finalPrompt }] }],
+          generationConfig: { responseModalities: ["IMAGE"] },
+        }),
+      });
+      if (!r.ok) {
+        const txt = await r.text();
+        lastErr = `${model} ${r.status}: ${txt.slice(0, 200)}`;
+        continue;
+      }
+      const data = await r.json();
+      type Part = { inlineData?: { data?: string; mimeType?: string }; text?: string };
+      const parts = (data.candidates?.[0]?.content?.parts as Part[] | undefined) || [];
+      const imgPart = parts.find((p) => p.inlineData?.data);
+      if (!imgPart?.inlineData?.data) {
+        const textPart = parts.find((p) => p.text)?.text;
+        const finish = data.candidates?.[0]?.finishReason || "unknown";
+        lastErr = `${model}: sem imagem (${finish})${textPart ? " — " + textPart.slice(0, 100) : ""}`;
+        continue;
+      }
+      return { data: imgPart.inlineData.data, mime: imgPart.inlineData.mimeType || "image/png" };
+    } catch (e: unknown) {
+      lastErr = e instanceof Error ? e.message : "erro";
+    }
   }
-  const data = await r.json();
-  type Part = { inlineData?: { data?: string; mimeType?: string }; text?: string };
-  const parts = (data.candidates?.[0]?.content?.parts as Part[] | undefined) || [];
-  const imgPart = parts.find((p) => p.inlineData?.data);
-  if (!imgPart?.inlineData?.data) {
-    // talvez o modelo devolveu so texto (refusal, finishReason)
-    const textPart = parts.find((p) => p.text)?.text;
-    const finish = data.candidates?.[0]?.finishReason || "unknown";
-    throw new Error(`Sem imagem (finishReason: ${finish}). ${textPart ? "Mensagem: " + textPart.slice(0, 150) : ""}`);
-  }
-  return { data: imgPart.inlineData.data, mime: imgPart.inlineData.mimeType || "image/png" };
+
+  throw new Error(`Gemini falhou todos modelos: ${lastErr}`);
 }
 
 /**

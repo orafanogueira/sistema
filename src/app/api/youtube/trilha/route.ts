@@ -12,7 +12,7 @@ REGRAS:
 - Mencionar: genero, mood, instrumentos, tempo/BPM, estrutura
 - Ser especifico (nao "happy music" mas "uplifting pop, 128 BPM, acoustic guitar + soft piano + gentle vocals")
 - Adicionar tags de qualidade: "high quality, studio recording"
-- Maximo 500 caracteres
+- MAXIMO 380 caracteres (limite do Suno)
 - Se for instrumental, mencionar "instrumental" no inicio
 - Se for pra video dark/YouTube, pensar em tracks cinematicas
 
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
       temperature: 0.7,
       maxTokens: 400,
     });
-    promptSuno = promptSuno.trim().replace(/^["']|["']$/g, "").slice(0, 500);
+    promptSuno = promptSuno.trim().replace(/^["']|["']$/g, "").slice(0, 380);
   } catch (e) {
     promptSuno = descricao;   // fallback: usa direto
   }
