@@ -19,7 +19,7 @@ export function YoutubeTabs() {
     { id: "descricao", label: "Descricao + Tags", icon: FileText, desc: "500 chars de tags" },
     { id: "roteiro", label: "Roteiro magnetico", icon: Video, desc: "Com hooks Dotti-style" },
     { id: "video", label: "Video Studio", icon: Film, desc: "Voz + imagens + thumb" },
-    { id: "trilha", label: "Trilha Sonora", icon: Music, desc: "Suno AI" },
+    { id: "trilha", label: "Trilha Sonora", icon: Music, desc: "Udio AI" },
   ];
 
   return (
