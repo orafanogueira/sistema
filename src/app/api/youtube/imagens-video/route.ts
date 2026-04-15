@@ -63,9 +63,8 @@ async function geminiImage(prompt: string): Promise<{ data: string; mime: string
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY ausente no Vercel");
 
-  let lastErr = "";
+  const todosErros: string[] = [];
 
-  // Tentativa 1: Imagen 4 (mais novo) via predict endpoint (suporta aspect_ratio)
   const imagenModels = [
     "imagen-4.0-generate-001",
     "imagen-4.0-fast-generate-001",
@@ -80,31 +79,30 @@ async function geminiImage(prompt: string): Promise<{ data: string; mime: string
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           instances: [{ prompt }],
-          parameters: { sampleCount: 1, aspectRatio: "16:9", personGeneration: "allow_adult" },
+          parameters: { sampleCount: 1, aspectRatio: "16:9" },
         }),
       });
       if (!r.ok) {
         const txt = await r.text();
-        lastErr = `${model} ${r.status}: ${txt.slice(0, 200)}`;
+        todosErros.push(`${model}=${r.status}:${txt.slice(0, 100).replace(/\s+/g, " ")}`);
         continue;
       }
       const data = await r.json();
       const pred = data.predictions?.[0];
       const b64 = pred?.bytesBase64Encoded || pred?.image?.bytesBase64Encoded;
       if (!b64) {
-        lastErr = `${model}: predictions sem bytesBase64Encoded`;
+        todosErros.push(`${model}=sem-bytes:${JSON.stringify(data).slice(0, 100)}`);
         continue;
       }
       return { data: b64, mime: pred.mimeType || "image/png" };
     } catch (e: unknown) {
-      lastErr = e instanceof Error ? e.message : "erro";
+      todosErros.push(`${model}=ex:${e instanceof Error ? e.message.slice(0, 80) : "erro"}`);
     }
   }
 
-  // Tentativa 2: Gemini com image gen (Nano Banana Pro + Gemini 3 Pro Image + 2.5 flash image)
   const geminiModels = [
-    "nano-banana-pro-preview",
     "gemini-3-pro-image-preview",
+    "nano-banana-pro-preview",
     "gemini-3.1-flash-image-preview",
     "gemini-2.5-flash-image",
   ];
@@ -123,7 +121,7 @@ async function geminiImage(prompt: string): Promise<{ data: string; mime: string
       });
       if (!r.ok) {
         const txt = await r.text();
-        lastErr = `${model} ${r.status}: ${txt.slice(0, 200)}`;
+        todosErros.push(`${model}=${r.status}:${txt.slice(0, 100).replace(/\s+/g, " ")}`);
         continue;
       }
       const data = await r.json();
@@ -131,18 +129,17 @@ async function geminiImage(prompt: string): Promise<{ data: string; mime: string
       const parts = (data.candidates?.[0]?.content?.parts as Part[] | undefined) || [];
       const imgPart = parts.find((p) => p.inlineData?.data);
       if (!imgPart?.inlineData?.data) {
-        const textPart = parts.find((p) => p.text)?.text;
-        const finish = data.candidates?.[0]?.finishReason || "unknown";
-        lastErr = `${model}: sem imagem (${finish})${textPart ? " — " + textPart.slice(0, 100) : ""}`;
+        const finish = data.candidates?.[0]?.finishReason || "?";
+        todosErros.push(`${model}=sem-img(${finish})`);
         continue;
       }
       return { data: imgPart.inlineData.data, mime: imgPart.inlineData.mimeType || "image/png" };
     } catch (e: unknown) {
-      lastErr = e instanceof Error ? e.message : "erro";
+      todosErros.push(`${model}=ex:${e instanceof Error ? e.message.slice(0, 80) : "erro"}`);
     }
   }
 
-  throw new Error(`Todos modelos Imagen+Gemini falharam. Ultimo erro: ${lastErr}`);
+  throw new Error(`TODOS falharam: ${todosErros.join(" | ")}`);
 }
 
 /**
