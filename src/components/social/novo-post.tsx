@@ -48,6 +48,8 @@ export function NovoPostButton({ clientes }: { clientes: { id: string; nome: str
   const [assets, setAssets] = useState<Asset[]>([]);
   const [copies, setCopies] = useState<Record<string, string>>({});
   const [iaImgPrompt, setIaImgPrompt] = useState("");
+  const [carrosselLoading, setCarrosselLoading] = useState(false);
+  const [slidesTextos, setSlidesTextos] = useState<Array<{ ordem: number; titulo: string; texto: string }>>([]);
 
   const togglePlatform = (p: string) =>
     setForm((f) => ({ ...f, platforms: f.platforms.includes(p) ? f.platforms.filter((x) => x !== p) : [...f.platforms, p] }));
@@ -93,6 +95,42 @@ export function NovoPostButton({ clientes }: { clientes: { id: string; nome: str
   const removeAsset = async (id: string) => {
     await fetch(`/api/social/upload?id=${id}`, { method: "DELETE" });
     setAssets(assets.filter((a) => a.id !== id));
+  };
+
+  const gerarCarrosselCompleto = async (comImagens: boolean) => {
+    if (!form.briefing.trim()) return toast.error("Preencha o briefing primeiro");
+    if (!form.cliente_id) return toast.error("Escolha cliente antes");
+    setCarrosselLoading(true);
+    try {
+      const ratioMap: Record<string, string> = { feed: "1:1", feed_vertical: "4:5", carrossel: "4:5" };
+      const r = await fetch("/api/social/gerar-carrossel", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          briefing: form.briefing,
+          slides_count: form.slides_count,
+          cliente_id: form.cliente_id,
+          aspect_ratio: ratioMap[form.format] || "1:1",
+          gerar_imagens: comImagens,
+        }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const data = await r.json();
+      setSlidesTextos(data.slides || []);
+      if (Array.isArray(data.assets) && data.assets.length > 0) {
+        setAssets([...assets, ...data.assets]);
+      }
+      if (data.copy_legenda && !form.copy_base) {
+        setForm((f) => ({ ...f, copy_base: data.copy_legenda }));
+      }
+      toast.success(
+        "Carrossel gerado",
+        comImagens
+          ? `${data.total_gerados}/${data.total_esperados} imagens criadas`
+          : `${data.slides?.length || 0} slides com textos + prompts prontos`
+      );
+    } catch (e: unknown) {
+      toast.error("Erro IA", e instanceof Error ? e.message : "tente novamente");
+    } finally { setCarrosselLoading(false); }
   };
 
   const adaptarCopy = async () => {
@@ -196,13 +234,32 @@ export function NovoPostButton({ clientes }: { clientes: { id: string; nome: str
                   ))}
                 </div>
                 {form.format === "carrossel" && (
-                  <div className="mt-2 flex items-center gap-3">
-                    <Label className="whitespace-nowrap">Qtd de slides:</Label>
-                    <Input type="number" min={2} max={10} className="w-20"
-                      value={form.slides_count}
-                      onChange={(e) => setForm({ ...form, slides_count: Math.min(10, Math.max(2, Number(e.target.value) || 2)) })} />
-                    <span className="text-xs text-muted-foreground">Min 2, max 10 (limite IG)</span>
-                  </div>
+                  <>
+                    <div className="mt-2 flex items-center gap-3">
+                      <Label className="whitespace-nowrap">Qtd de slides:</Label>
+                      <Input type="number" min={2} max={10} className="w-20"
+                        value={form.slides_count}
+                        onChange={(e) => setForm({ ...form, slides_count: Math.min(10, Math.max(2, Number(e.target.value) || 2)) })} />
+                      <span className="text-xs text-muted-foreground">Min 2, max 10 (limite IG)</span>
+                    </div>
+                    <div className="mt-3 p-3 bg-cyan/5 border border-cyan/30 rounded-md space-y-2">
+                      <div className="text-xs font-bold flex items-center gap-1"><Sparkles className="h-3 w-3 text-cyan" /> Gerador automatico de carrossel</div>
+                      <div className="text-xs text-muted-foreground">Preencha o briefing abaixo, depois clique em uma das opcoes:</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button size="sm" variant="outline" onClick={() => gerarCarrosselCompleto(false)}
+                          disabled={carrosselLoading}>
+                          {carrosselLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : "So textos + prompts"}
+                        </Button>
+                        <Button size="sm" onClick={() => gerarCarrosselCompleto(true)}
+                          disabled={carrosselLoading}>
+                          {carrosselLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Wand2 className="h-3 w-3" /> Textos + imagens IA</>}
+                        </Button>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        Textos: Claude (baratissimo). Imagens: Gemini (~$0.04/cada)
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
 
@@ -279,6 +336,24 @@ export function NovoPostButton({ clientes }: { clientes: { id: string; nome: str
                   </div>
                 )}
               </div>
+
+              {/* slides textos gerados */}
+              {slidesTextos.length > 0 && (
+                <div>
+                  <Label>Textos dos slides (editavel)</Label>
+                  <div className="mt-1 space-y-2">
+                    {slidesTextos.map((s, i) => (
+                      <div key={i} className="border border-border rounded-md p-3 text-sm">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="secondary" className="text-[10px]">Slide {s.ordem}</Badge>
+                          <b className="text-xs">{s.titulo}</b>
+                        </div>
+                        {s.texto && <div className="text-xs text-muted-foreground">{s.texto}</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* briefing */}
               <div>
