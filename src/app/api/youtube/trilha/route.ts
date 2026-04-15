@@ -56,8 +56,11 @@ export async function POST(req: Request) {
   }
 
   // 3. Baixa audio e salva no Storage
+  if (!result.audio_url) {
+    return new NextResponse(`Suno completou mas sem audio_url. Result: ${JSON.stringify(result).slice(0, 300)}`, { status: 500 });
+  }
   const audioRes = await fetch(result.audio_url);
-  if (!audioRes.ok) return new NextResponse("Nao conseguiu baixar audio do Suno", { status: 500 });
+  if (!audioRes.ok) return new NextResponse(`Nao conseguiu baixar audio: ${audioRes.status} - ${result.audio_url}`, { status: 500 });
   const buffer = Buffer.from(await audioRes.arrayBuffer());
   const path = `${m.tenant_id}/trilha-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.mp3`;
   const { error: upErr } = await supabase.storage.from("social-media").upload(path, buffer, {
