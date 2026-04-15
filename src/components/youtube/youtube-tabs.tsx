@@ -1,13 +1,14 @@
 "use client";
 import { useState } from "react";
-import { Target, Sparkles, FileText, Video, Film } from "lucide-react";
+import { Target, Sparkles, FileText, Video, Film, Music } from "lucide-react";
 import { Minerador } from "./minerador";
 import { Titulos } from "./titulos";
 import { Descricao } from "./descricao";
 import { Roteiro } from "./roteiro";
 import { VideoStudio } from "./video-studio";
+import { Trilha } from "./trilha";
 
-type Tab = "minerador" | "titulos" | "descricao" | "roteiro" | "video";
+type Tab = "minerador" | "titulos" | "descricao" | "roteiro" | "video" | "trilha";
 
 export function YoutubeTabs() {
   const [tab, setTab] = useState<Tab>("minerador");
@@ -18,11 +19,12 @@ export function YoutubeTabs() {
     { id: "descricao", label: "Descricao + Tags", icon: FileText, desc: "500 chars de tags" },
     { id: "roteiro", label: "Roteiro magnetico", icon: Video, desc: "Com hooks Dotti-style" },
     { id: "video", label: "Video Studio", icon: Film, desc: "Voz + imagens + thumb" },
+    { id: "trilha", label: "Trilha Sonora", icon: Music, desc: "Suno AI" },
   ];
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
         {TABS.map((t) => {
           const Icon = t.icon;
           return (
@@ -41,6 +43,7 @@ export function YoutubeTabs() {
       {tab === "descricao" && <Descricao />}
       {tab === "roteiro" && <Roteiro />}
       {tab === "video" && <VideoStudio />}
+      {tab === "trilha" && <Trilha />}
     </div>
   );
 }
