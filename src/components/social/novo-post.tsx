@@ -19,8 +19,9 @@ const PLATFORMS = [
 ];
 
 const FORMATS = [
-  { value: "feed", label: "Feed (foto/post)", ratio: "1:1" },
-  { value: "carrossel", label: "Carrossel (varias imgs)", ratio: "1:1" },
+  { value: "feed", label: "Feed quadrado", ratio: "1:1" },
+  { value: "feed_vertical", label: "Feed vertical", ratio: "4:5" },
+  { value: "carrossel", label: "Carrossel", ratio: "4:5" },
   { value: "reel", label: "Reels / Shorts", ratio: "9:16" },
   { value: "story", label: "Story", ratio: "9:16" },
   { value: "video", label: "Video longo", ratio: "16:9" },
@@ -68,7 +69,12 @@ export function NovoPostButton({ clientes }: { clientes: { id: string; nome: str
     setImgLoading(true);
     try {
       const ratio = FORMATS.find((f) => f.value === form.format)?.ratio;
-      const aspectRatio = ratio === "9:16" ? "9:16" : ratio === "16:9" ? "16:9" : "1:1";
+      // Gemini suporta: 1:1, 9:16, 16:9, 3:4, 4:3. 4:5 → mapeia pra 3:4 (mais proximo).
+      const aspectRatio =
+        ratio === "9:16" ? "9:16" :
+        ratio === "16:9" ? "16:9" :
+        ratio === "4:5" ? "3:4" :
+        "1:1";
       const r = await fetch("/api/social/gerar-imagem", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: iaImgPrompt, cliente_id: form.cliente_id, aspect_ratio: aspectRatio }),
@@ -179,7 +185,7 @@ export function NovoPostButton({ clientes }: { clientes: { id: string; nome: str
               {/* formato */}
               <div>
                 <Label>Formato</Label>
-                <div className="grid grid-cols-5 gap-2 mt-1">
+                <div className="grid grid-cols-6 gap-2 mt-1">
                   {FORMATS.map((f) => (
                     <button key={f.value} onClick={() => setForm({ ...form, format: f.value })}
                       className={`p-3 rounded-md border text-xs font-semibold transition-colors ${form.format === f.value ? "border-cyan bg-cyan/10 text-cyan" : "border-border hover:border-cyan/50"}`}>
