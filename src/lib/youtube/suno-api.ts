@@ -76,25 +76,49 @@ export async function gerarMusicaSuno(opts: {
     throw new Error(`SunoAPI create ${createRes.status}: ${txt.slice(0, 300)}`);
   }
   const created = await createRes.json();
-  const clipIds: string[] = created.data?.clip_ids || created.clip_ids || (created.id ? [created.id] : []);
-  if (clipIds.length === 0) throw new Error("SunoAPI nao devolveu clip_ids");
+  // SunoAPI.com pode retornar varias estruturas — tenta todas
+  type ClipShape = { id?: string };
+  const data = created.data ?? created;
+  const taskId: string | undefined = data.task_id || data.taskId || created.task_id || created.taskId;
+  const clipIds: string[] =
+    data.clip_ids ||
+    created.clip_ids ||
+    (Array.isArray(data.clips) ? data.clips.map((c: ClipShape) => c.id).filter(Boolean) : []) ||
+    (data.id ? [data.id] : []);
+  // se nao tem clip_ids mas tem task_id, polleia pelo task_id depois
+  if (clipIds.length === 0 && !taskId) {
+    throw new Error(`SunoAPI resposta sem clip_ids/task_id. Raw: ${JSON.stringify(created).slice(0, 400)}`);
+  }
 
-  // 2. poll ate completar (ambos clips)
+  // 2. poll ate completar
   const maxPolls = opts.max_polls || 40;
-  for (let i = 0; i < maxPolls; i++) {
-    await new Promise((r) => setTimeout(r, 4000));   // 4s entre polls
+  const pollUrl = clipIds.length > 0
+    ? `${BASE}/api/v1/suno/clips?ids=${clipIds.join(",")}`
+    : `${BASE}/api/v1/suno/task/${taskId}`;
 
-    const statusRes = await fetch(`${BASE}/api/v1/suno/clips?ids=${clipIds.join(",")}`, {
+  for (let i = 0; i < maxPolls; i++) {
+    await new Promise((r) => setTimeout(r, 4000));
+
+    const statusRes = await fetch(pollUrl, {
       headers: { "Authorization": `Bearer ${key}` },
     });
     if (!statusRes.ok) continue;
     const statusData = await statusRes.json();
-    const clips = (statusData.data || statusData.clips || statusData) as ClipResponse[];
+    // tenta varias estruturas de resposta
+    const payload = statusData.data || statusData;
+    const clips: ClipResponse[] = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload.clips)
+        ? payload.clips
+        : payload.audio_url
+          ? [payload as ClipResponse]
+          : [];
 
-    if (!Array.isArray(clips)) continue;
+    if (clips.length === 0) continue;
 
-    const completos = clips.filter((c) => c.status === "complete" || c.status === "streaming");
-    if (completos.length >= clipIds.length) {
+    const completos = clips.filter((c) => (c.status === "complete" || c.status === "streaming") && c.audio_url);
+    const expected = clipIds.length || 1;
+    if (completos.length >= expected) {
       const first = completos[0];
       return {
         audio_url: first.audio_url || "",
@@ -102,11 +126,10 @@ export async function gerarMusicaSuno(opts: {
         title: first.title,
         duration: first.duration || first.metadata?.duration,
         lyrics: first.metadata?.prompt,
-        task_id: clipIds.join(","),
+        task_id: clipIds.join(",") || taskId || "",
       };
     }
 
-    // algum falhou?
     const fail = clips.find((c) => c.status === "error" || c.status === "failed");
     if (fail) throw new Error(`SunoAPI clip falhou: ${fail.status}`);
   }
