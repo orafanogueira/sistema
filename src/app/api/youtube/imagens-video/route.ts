@@ -25,6 +25,40 @@ Output JSON estrito, sem markdown:
 }
 Gere EXATAMENTE a quantidade pedida.`;
 
+async function falImage(prompt: string, modelo: "flux-schnell" | "flux-pro" | "ideogram"): Promise<{ buffer: Buffer; mime: string }> {
+  const key = process.env.FAL_KEY;
+  if (!key) throw new Error("FAL_KEY ausente no Vercel");
+
+  const endpoint = modelo === "flux-pro" ? "fal-ai/flux-pro/v1.1"
+    : modelo === "ideogram" ? "fal-ai/ideogram/v2"
+    : "fal-ai/flux/schnell";
+
+  // sync call (mais simples que queue pra imagens)
+  const r = await fetch(`https://fal.run/${endpoint}`, {
+    method: "POST",
+    headers: { "Authorization": `Key ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      prompt,
+      image_size: "landscape_16_9",
+      num_inference_steps: modelo === "flux-schnell" ? 4 : 28,
+      num_images: 1,
+      enable_safety_checker: false,
+    }),
+  });
+  if (!r.ok) {
+    const txt = await r.text();
+    throw new Error(`fal ${modelo} ${r.status}: ${txt.slice(0, 250)}`);
+  }
+  const data = await r.json();
+  const imgUrl = data.images?.[0]?.url;
+  if (!imgUrl) throw new Error("fal nao retornou url");
+  const imgRes = await fetch(imgUrl);
+  if (!imgRes.ok) throw new Error("fal imgUrl 404");
+  const buffer = Buffer.from(await imgRes.arrayBuffer());
+  const mime = imgRes.headers.get("content-type") || "image/png";
+  return { buffer, mime };
+}
+
 async function geminiImage(prompt: string): Promise<{ data: string; mime: string }> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY ausente no Vercel");
@@ -66,9 +100,10 @@ export async function POST(req: Request) {
   const { data: m } = await supabase.from("memberships").select("tenant_id").eq("user_id", user.id).maybeSingle();
   if (!m) return new NextResponse("sem tenant", { status: 400 });
 
-  const { titulo, qtd, tema, gerar_imagens } = await req.json();
+  const { titulo, qtd, tema, gerar_imagens, modelo } = await req.json();
   if (!titulo?.trim()) return new NextResponse("titulo obrigatorio", { status: 400 });
   const total = Math.max(8, Math.min(16, Number(qtd) || 12));
+  const modeloImg: "gemini" | "flux-schnell" | "flux-pro" | "ideogram" = modelo || "flux-schnell";
 
   // 1) Claude gera prompts
   const userMsg = `Titulo do video: ${titulo}
@@ -103,18 +138,25 @@ Quantidade de imagens: ${total}`;
   for (let i = 0; i < prompts.length; i += concurrency) {
     const batch = prompts.slice(i, i + concurrency);
     const results = await Promise.all(batch.map(async (p) => {
-      let img;
+      let buffer: Buffer; let mime: string;
       try {
-        img = await geminiImage(p.prompt_ingles);
+        if (modeloImg === "gemini") {
+          const img = await geminiImage(p.prompt_ingles);
+          buffer = Buffer.from(img.data, "base64");
+          mime = img.mime;
+        } else {
+          const img = await falImage(p.prompt_ingles, modeloImg);
+          buffer = img.buffer;
+          mime = img.mime;
+        }
       } catch (e: unknown) {
         erros.push({ ordem: p.ordem, erro: e instanceof Error ? e.message : "erro" });
         return null;
       }
-      const ext = img.mime.split("/")[1] || "png";
+      const ext = mime.split("/")[1] || "png";
       const path = `${m.tenant_id}/yt-video-${Date.now()}-${p.ordem}-${Math.random().toString(36).slice(2, 6)}.${ext}`;
-      const buffer = Buffer.from(img.data, "base64");
       const { error: upErr } = await supabase.storage.from("social-media").upload(path, buffer, {
-        contentType: img.mime, upsert: false,
+        contentType: mime, upsert: false,
       });
       if (upErr) { erros.push({ ordem: p.ordem, erro: `Storage: ${upErr.message}` }); return null; }
       const { data: pub } = supabase.storage.from("social-media").getPublicUrl(path);
