@@ -6,7 +6,7 @@ import {
   Video, MessagesSquare, Mail, Bot, Plug, Settings, Building2,
   Target, Car, Zap, Workflow, Sparkles, Calendar, Image, Bell,
   Activity, Link2, FileText, DollarSign, Receipt, Instagram,
-  MessageSquare, Search, Share2, Heart,
+  MessageSquare, Search, Share2, Heart, Phone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +23,7 @@ const NAV = [
   ]},
   { section: "CRM", items: [
     { href: "/leads", label: "Leads", icon: Target },
+    { href: "/prospeccao", label: "Prospeccao ativa", icon: Phone },
     { href: "/rastreamento", label: "Rastreamento", icon: Activity },
     { href: "/jornadas", label: "Jornadas", icon: Workflow },
     { href: "/links-rastreaveis", label: "Links", icon: Link2 },
