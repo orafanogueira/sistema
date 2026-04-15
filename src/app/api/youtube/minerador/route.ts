@@ -72,24 +72,57 @@ export async function POST(req: Request) {
   const countries = acceptedCountries[pais] || [];
   const langPrefix = acceptedLangPrefix[pais] || "";
 
+  // deteccao heuristica de idioma pelo texto (title + description)
+  function detectarIdioma(texto: string): "pt" | "en" | "es" | "unknown" {
+    const t = (texto || "").toLowerCase();
+    if (!t) return "unknown";
+
+    // caracteres especificos portugues
+    const ptChars = (t.match(/[ãõçáéíóúâêôà]/g) || []).length;
+    // caracteres especificos espanhol
+    const esChars = (t.match(/[ñü¿¡]/g) || []).length;
+
+    // palavras comuns
+    const ptWords = (t.match(/\b(que|para|como|não|mais|você|está|sua|seu|nós|isso|essa|esse|com|pelo|pela|sobre|entre|assim|mesmo|ainda|quando|porque|então|todos|nunca|sempre|muito|também|aqui|tudo|fazer|vida|coisa|dia|ano|dos|das|nos|nas|ele|ela|minha|meu|uma|historia|historias|canal)\b/g) || []).length;
+    const enWords = (t.match(/\b(the|and|for|you|are|with|from|this|that|have|your|will|would|could|should|about|there|their|they|what|when|where|which|while|been|being|because|through|every|most|some|such|into|them|then|than|thing|people|after|channel|story|stories|video|videos)\b/g) || []).length;
+    const esWords = (t.match(/\b(que|para|como|más|usted|está|con|sobre|entre|mismo|todavía|cuando|porque|entonces|todos|nunca|siempre|mucho|también|aquí|todo|hacer|vida|cosa|día|año|los|las|este|esta|una|historia|historias|canal|español)\b/g) || []).length;
+
+    if (ptChars >= 3 || ptWords > enWords + 1) return "pt";
+    if (esChars >= 2 || (esWords > enWords + 1 && esWords > ptWords)) return "es";
+    if (enWords > ptWords + 1 && enWords > 2) return "en";
+    return "unknown";
+  }
+
   // 4. filtra + enriquece
   const oportunidades = channels.filter((c) => {
     const sub = Number(c.statistics?.subscriberCount || 0);
     const vid = Number(c.statistics?.videoCount || 0);
     if (!(sub >= min_inscritos && sub <= max_inscritos && vid <= max_videos && vid >= 3)) return false;
 
-    // filtro de pais/idioma real do canal
+    // filtro 1: pais setado no canal
     const canalPais = c.snippet?.country || c.brandingSettings?.channel?.country;
-    const canalLang = c.snippet?.defaultLanguage || c.brandingSettings?.channel?.defaultLanguage || "";
-
-    // se canal tem pais setado, exige que bata com os aceitos da regiao
     if (canalPais && countries.length > 0 && !countries.includes(canalPais)) return false;
 
-    // se canal tem idioma setado e nao bate com prefixo da regiao, rejeita
+    // filtro 2: idioma declarado
+    const canalLang = c.snippet?.defaultLanguage || c.brandingSettings?.channel?.defaultLanguage || "";
     if (canalLang && langPrefix && !canalLang.toLowerCase().startsWith(langPrefix)) return false;
 
+    // filtro 3: heuristica de texto (se pais/lang nao foram setados)
+    if (!canalPais && !canalLang) {
+      const texto = `${c.snippet?.title || ""} ${c.snippet?.description || ""}`;
+      const detectado = detectarIdioma(texto);
+      if (detectado !== "unknown") {
+        // mapeia regiao -> idioma esperado
+        const idiomaEsperado: Record<string, "pt" | "en" | "es"> = {
+          BR: "pt", PT: "pt", US: "en", MX: "es", ES: "es",
+        };
+        const esperado = idiomaEsperado[pais];
+        if (esperado && detectado !== esperado) return false;
+      }
+    }
+
     return true;
-  }).slice(0, 30);  // limita processing
+  }).slice(0, 30);
 
   // 5. pra top 15, pega videos recentes
   const topCanais = oportunidades.slice(0, 15);
