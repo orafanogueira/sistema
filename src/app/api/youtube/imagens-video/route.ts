@@ -25,9 +25,9 @@ Output JSON estrito, sem markdown:
 }
 Gere EXATAMENTE a quantidade pedida.`;
 
-async function geminiImage(prompt: string): Promise<{ data: string; mime: string } | null> {
+async function geminiImage(prompt: string): Promise<{ data: string; mime: string }> {
   const key = process.env.GEMINI_API_KEY;
-  if (!key) return null;
+  if (!key) throw new Error("GEMINI_API_KEY ausente no Vercel");
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${key}`;
   const r = await fetch(url, {
     method: "POST",
@@ -37,12 +37,21 @@ async function geminiImage(prompt: string): Promise<{ data: string; mime: string
       generationConfig: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "16:9" } },
     }),
   });
-  if (!r.ok) return null;
+  if (!r.ok) {
+    const txt = await r.text();
+    throw new Error(`Gemini ${r.status}: ${txt.slice(0, 250)}`);
+  }
   const data = await r.json();
-  type Part = { inlineData?: { data?: string; mimeType?: string } };
-  const part = (data.candidates?.[0]?.content?.parts as Part[] | undefined)?.find((p) => p.inlineData?.data);
-  if (!part?.inlineData?.data) return null;
-  return { data: part.inlineData.data, mime: part.inlineData.mimeType || "image/png" };
+  type Part = { inlineData?: { data?: string; mimeType?: string }; text?: string };
+  const parts = (data.candidates?.[0]?.content?.parts as Part[] | undefined) || [];
+  const imgPart = parts.find((p) => p.inlineData?.data);
+  if (!imgPart?.inlineData?.data) {
+    // talvez o modelo devolveu so texto (refusal, finishReason)
+    const textPart = parts.find((p) => p.text)?.text;
+    const finish = data.candidates?.[0]?.finishReason || "unknown";
+    throw new Error(`Sem imagem (finishReason: ${finish}). ${textPart ? "Mensagem: " + textPart.slice(0, 150) : ""}`);
+  }
+  return { data: imgPart.inlineData.data, mime: imgPart.inlineData.mimeType || "image/png" };
 }
 
 /**
@@ -94,8 +103,13 @@ Quantidade de imagens: ${total}`;
   for (let i = 0; i < prompts.length; i += concurrency) {
     const batch = prompts.slice(i, i + concurrency);
     const results = await Promise.all(batch.map(async (p) => {
-      const img = await geminiImage(p.prompt_ingles);
-      if (!img) { erros.push({ ordem: p.ordem, erro: "Gemini nao retornou imagem" }); return null; }
+      let img;
+      try {
+        img = await geminiImage(p.prompt_ingles);
+      } catch (e: unknown) {
+        erros.push({ ordem: p.ordem, erro: e instanceof Error ? e.message : "erro" });
+        return null;
+      }
       const ext = img.mime.split("/")[1] || "png";
       const path = `${m.tenant_id}/yt-video-${Date.now()}-${p.ordem}-${Math.random().toString(36).slice(2, 6)}.${ext}`;
       const buffer = Buffer.from(img.data, "base64");
