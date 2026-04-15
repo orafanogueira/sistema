@@ -89,19 +89,20 @@ Quantidade de imagens: ${total}`;
 
   // 3) Gera imagens (paralelo com limite 3 concorrentes)
   const assets: Array<{ id: string; url: string; ordem: number; prompt: string }> = [];
+  const erros: Array<{ ordem: number; erro: string }> = [];
   const concurrency = 3;
   for (let i = 0; i < prompts.length; i += concurrency) {
     const batch = prompts.slice(i, i + concurrency);
     const results = await Promise.all(batch.map(async (p) => {
       const img = await geminiImage(p.prompt_ingles);
-      if (!img) return null;
+      if (!img) { erros.push({ ordem: p.ordem, erro: "Gemini nao retornou imagem" }); return null; }
       const ext = img.mime.split("/")[1] || "png";
       const path = `${m.tenant_id}/yt-video-${Date.now()}-${p.ordem}-${Math.random().toString(36).slice(2, 6)}.${ext}`;
       const buffer = Buffer.from(img.data, "base64");
       const { error: upErr } = await supabase.storage.from("social-media").upload(path, buffer, {
         contentType: img.mime, upsert: false,
       });
-      if (upErr) return null;
+      if (upErr) { erros.push({ ordem: p.ordem, erro: `Storage: ${upErr.message}` }); return null; }
       const { data: pub } = supabase.storage.from("social-media").getPublicUrl(path);
       const { data: row } = await supabase.from("youtube_video_imagens").insert({
         tenant_id: m.tenant_id,
@@ -123,5 +124,19 @@ Quantidade de imagens: ${total}`;
     total_prompts: prompts.length,
     total_imagens: assets.length,
     imagens: assets,
+    erros,
   });
+}
+
+/** GET: lista galeria de imagens ja geradas (historico por tenant) */
+export async function GET(req: Request) {
+  const supabase = await createClient();
+  const url = new URL(req.url);
+  const titulo = url.searchParams.get("titulo");
+  let q = supabase.from("youtube_video_imagens")
+    .select("id,url,storage_path,titulo_video,prompt_usado,position,created_at")
+    .order("created_at", { ascending: false }).limit(100);
+  if (titulo) q = q.eq("titulo_video", titulo);
+  const { data } = await q;
+  return NextResponse.json(data || []);
 }

@@ -53,8 +53,15 @@ export function VideoStudio() {
   // === STEP 3: imagens ===
   const [imgsLoading, setImgsLoading] = useState(false);
   const [imagens, setImagens] = useState<VideoImg[]>([]);
+  const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set());
   const [imgsForm, setImgsForm] = useState({ titulo: "", qtd: 12, tema: "" });
   const [apenasPrompts, setApenasPrompts] = useState<Array<{ ordem: number; descricao_cena: string; prompt_ingles: string }>>([]);
+  const [imgErros, setImgErros] = useState<Array<{ ordem: number; erro: string }>>([]);
+
+  // === ANIMAR ===
+  const [animLoading, setAnimLoading] = useState(false);
+  const [animForm, setAnimForm] = useState({ modelo: "kling", duration: 5, prompt_movimento: "" });
+  const [videosAnimados, setVideosAnimados] = useState<Array<{ source_img_id: string; video_url: string }>>([]);
 
   // === STEP 4: thumbnail ===
   const [thumbLoading, setThumbLoading] = useState(false);
@@ -123,7 +130,7 @@ export function VideoStudio() {
 
   const gerarImagens = async (comImagens: boolean) => {
     if (!imgsForm.titulo.trim()) return toast.error("Informe o titulo");
-    setImgsLoading(true); setImagens([]); setApenasPrompts([]);
+    setImgsLoading(true); setImagens([]); setApenasPrompts([]); setImgErros([]); setSelecionadas(new Set()); setVideosAnimados([]);
     try {
       const r = await fetch("/api/youtube/imagens-video", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -131,12 +138,72 @@ export function VideoStudio() {
       });
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
-      if (comImagens) setImagens(data.imagens || []);
-      else setApenasPrompts(data.prompts || []);
-      toast.success(comImagens ? `${data.total_imagens} imagens geradas` : `${data.total_prompts} prompts gerados`);
+      if (comImagens) {
+        setImagens(data.imagens || []);
+        setImgErros(data.erros || []);
+        if (!data.imagens || data.imagens.length === 0) setApenasPrompts(data.prompts || []);
+      } else {
+        setApenasPrompts(data.prompts || []);
+      }
+      if (comImagens) {
+        const suc = data.total_imagens || 0;
+        const esp = data.total_prompts || 0;
+        toast.success(`${suc} de ${esp} imagens geradas`, suc < esp ? `${esp - suc} falharam — prompts disponiveis pra regerar` : "");
+      } else {
+        toast.success(`${data.total_prompts} prompts gerados`);
+      }
     } catch (e: unknown) {
       toast.error("Erro IA", e instanceof Error ? e.message : "tente novamente");
     } finally { setImgsLoading(false); }
+  };
+
+  const toggleSelecionada = (id: string) => {
+    const novo = new Set(selecionadas);
+    if (novo.has(id)) novo.delete(id); else novo.add(id);
+    setSelecionadas(novo);
+  };
+  const selecionarTodas = () => setSelecionadas(new Set(imagens.map((i) => i.id)));
+  const limparSelecao = () => setSelecionadas(new Set());
+
+  const baixarImagem = (url: string, nome: string) => {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = nome;
+    link.target = "_blank";
+    link.click();
+  };
+
+  const baixarSelecionadas = async () => {
+    const sel = imagens.filter((i) => selecionadas.has(i.id));
+    for (const im of sel) {
+      baixarImagem(im.url, `yt-img-${im.ordem}.png`);
+      await new Promise((r) => setTimeout(r, 300));
+    }
+  };
+
+  const animar = async () => {
+    const sel = imagens.filter((i) => selecionadas.has(i.id));
+    if (sel.length === 0) return toast.error("Selecione imagens pra animar");
+    if (sel.length > 10) return toast.error("Maximo 10 por vez");
+    setAnimLoading(true);
+    setVideosAnimados([]);
+    try {
+      const r = await fetch("/api/youtube/animar-imagens", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imagens: sel.map((i) => ({ id: i.id, url: i.url, prompt: i.prompt })),
+          modelo: animForm.modelo,
+          duration: animForm.duration,
+          prompt_movimento: animForm.prompt_movimento,
+        }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const data = await r.json();
+      setVideosAnimados(data.videos || []);
+      toast.success(`${data.total_sucesso} de ${sel.length} animacoes prontas`);
+    } catch (e: unknown) {
+      toast.error("Erro", e instanceof Error ? e.message : "tente novamente");
+    } finally { setAnimLoading(false); }
   };
 
   const gerarThumb = async () => {
@@ -344,17 +411,104 @@ export function VideoStudio() {
               </div>
             )}
 
+            {imgErros.length > 0 && (
+              <div className="p-3 bg-red-500/5 border border-red-500/30 rounded text-xs">
+                <div className="font-bold text-red-400 mb-1">{imgErros.length} imagens falharam:</div>
+                {imgErros.slice(0, 3).map((e, i) => (
+                  <div key={i} className="text-muted-foreground">#{e.ordem}: {e.erro}</div>
+                ))}
+              </div>
+            )}
+
             {imagens.length > 0 && (
               <>
-                <div className="grid grid-cols-3 gap-2">
-                  {imagens.sort((a, b) => a.ordem - b.ordem).map((im) => (
-                    <div key={im.id} className="relative aspect-video rounded overflow-hidden border border-border">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={im.url} alt="" className="w-full h-full object-cover" />
-                      <Badge className="absolute top-1 left-1 text-[9px]" variant="secondary">#{im.ordem}</Badge>
-                    </div>
-                  ))}
+                <div className="flex items-center justify-between border-t border-border pt-3">
+                  <div className="text-sm font-bold">
+                    {imagens.length} imagens · {selecionadas.size} selecionadas
+                  </div>
+                  <div className="flex gap-1">
+                    <Button size="sm" variant="outline" onClick={selecionarTodas}>Todas</Button>
+                    <Button size="sm" variant="ghost" onClick={limparSelecao}>Limpar</Button>
+                  </div>
                 </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {imagens.sort((a, b) => a.ordem - b.ordem).map((im) => {
+                    const sel = selecionadas.has(im.id);
+                    return (
+                      <div key={im.id} className={`relative aspect-video rounded overflow-hidden border-2 transition-colors cursor-pointer ${sel ? "border-cyan" : "border-border hover:border-cyan/50"}`}
+                        onClick={() => toggleSelecionada(im.id)}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={im.url} alt="" className="w-full h-full object-cover" />
+                        <Badge className="absolute top-1 left-1 text-[9px]" variant="secondary">#{im.ordem}</Badge>
+                        <input type="checkbox" checked={sel} onChange={() => {}}
+                          className="absolute top-1 right-1 h-4 w-4 accent-cyan cursor-pointer" />
+                        <div className="absolute bottom-1 right-1 flex gap-1">
+                          <Button size="icon" variant="secondary" className="h-6 w-6"
+                            onClick={(e) => { e.stopPropagation(); baixarImagem(im.url, `yt-img-${im.ordem}.png`); }}>
+                            <Download className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {selecionadas.size > 0 && (
+                  <div className="flex flex-col gap-2 p-3 bg-cyan/5 border border-cyan/30 rounded">
+                    <div className="text-sm font-bold">{selecionadas.size} selecionadas</div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" onClick={baixarSelecionadas} className="flex-1">
+                        <Download className="h-4 w-4" /> Baixar selecionadas
+                      </Button>
+                    </div>
+
+                    {/* Animar */}
+                    <div className="border-t border-cyan/20 pt-2 mt-1 space-y-2">
+                      <div className="text-xs font-bold">Animar com IA (imagem → video 5-10s)</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-[10px]">Modelo</Label>
+                          <select className="mt-0.5 flex h-8 w-full rounded-md border border-input bg-background/40 px-2 text-xs"
+                            value={animForm.modelo} onChange={(e) => setAnimForm({ ...animForm, modelo: e.target.value })}>
+                            <option value="kling">Kling (rapido · ~$0.30)</option>
+                            <option value="ltx">LTX Video (mais barato · ~$0.10)</option>
+                            <option value="luma">Luma Dream (qualidade · ~$0.40)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <Label className="text-[10px]">Duracao (s)</Label>
+                          <Input type="number" className="mt-0.5 h-8 text-xs" min={3} max={10}
+                            value={animForm.duration} onChange={(e) => setAnimForm({ ...animForm, duration: Number(e.target.value) })} />
+                        </div>
+                      </div>
+                      <Input placeholder="Prompt de movimento (opcional, ex: slow zoom in, cinematic)"
+                        className="h-8 text-xs"
+                        value={animForm.prompt_movimento}
+                        onChange={(e) => setAnimForm({ ...animForm, prompt_movimento: e.target.value })} />
+                      <Button onClick={animar} disabled={animLoading} className="w-full">
+                        {animLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Animando (pode levar 2-5min)...</> : <><Play className="h-4 w-4" /> Animar {selecionadas.size}</>}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {videosAnimados.length > 0 && (
+                  <div className="space-y-2 border-t border-border pt-3">
+                    <div className="text-sm font-bold">Videos animados</div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {videosAnimados.map((v, i) => (
+                        <div key={i} className="space-y-1">
+                          <video src={v.video_url} controls className="w-full rounded border border-border aspect-video" />
+                          <a href={v.video_url} download={`yt-video-anim-${i + 1}.mp4`}>
+                            <Button size="sm" variant="outline" className="w-full"><Download className="h-3 w-3" /> Baixar</Button>
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <Button onClick={() => setStep(4)} className="w-full">Proximo: thumbnail →</Button>
               </>
             )}
