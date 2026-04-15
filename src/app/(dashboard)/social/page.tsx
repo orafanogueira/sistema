@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { Image, Video, Layers, Eye } from "lucide-react";
-import { formatInt } from "@/lib/utils";
+import { formatDate, formatInt } from "@/lib/utils";
 import { NovoPostButton } from "@/components/social/novo-post";
 import { EditorVideoButton } from "@/components/social/editor-video";
 
