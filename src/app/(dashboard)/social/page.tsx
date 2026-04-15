@@ -3,8 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { Plus, Image, Video, Layers, Heart, MessageCircle, Eye } from "lucide-react";
-import { formatDate, formatInt } from "@/lib/utils";
+import { Image, Video, Layers, Eye } from "lucide-react";
+import { formatInt } from "@/lib/utils";
+import { NovoPostButton } from "@/components/social/novo-post";
+import { EditorVideoButton } from "@/components/social/editor-video";
 
 const STATUS_COLORS: Record<string, "default" | "secondary" | "success" | "warning" | "destructive"> = {
   ideia: "secondary", rascunho: "secondary", aguardando_aprovacao: "warning",
@@ -22,6 +24,7 @@ export default async function SocialPage() {
     .from("social_posts")
     .select("*,cliente:clientes(nome)")
     .order("created_at", { ascending: false }).limit(60);
+  const { data: clientes } = await supabase.from("clientes").select("id,nome").order("nome");
 
   const stats = {
     total: (posts || []).length,
@@ -39,8 +42,8 @@ export default async function SocialPage() {
         </div>
         <div className="flex gap-2">
           <Link href="/calendario"><Button variant="outline">Calendario</Button></Link>
-          <Link href="/agentes-ia"><Button>Gerar com IA</Button></Link>
-          <Button><Plus className="h-4 w-4" /> Novo post</Button>
+          <EditorVideoButton />
+          <NovoPostButton clientes={clientes || []} />
         </div>
       </div>
 

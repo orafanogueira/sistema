@@ -28,12 +28,14 @@ export async function POST(req: Request) {
     tenant_id: m.tenant_id,
     cliente_id: body.cliente_id,
     platform: body.platform || "instagram",
+    platforms: body.platforms || [body.platform || "instagram"],
     format: body.format || "feed",
     pillar: body.pillar || "autoridade",
     status: body.status || "rascunho",
     title: body.title,
     briefing: body.briefing,
     copy: body.copy,
+    copies_by_platform: body.copies_by_platform || {},
     hook: body.hook,
     cta: body.cta,
     hashtags: body.hashtags || [],
@@ -46,5 +48,25 @@ export async function POST(req: Request) {
     created_by: user.id,
   }).select().single();
   if (error) return new NextResponse(error.message, { status: 400 });
+
+  // vincula assets ao post
+  if (Array.isArray(body.asset_ids) && body.asset_ids.length > 0) {
+    await supabase.from("social_media_assets").update({ post_id: data.id })
+      .in("id", body.asset_ids);
+  }
+
+  // cria registros de publicacao por plataforma
+  if (Array.isArray(body.platforms) && body.platforms.length > 0) {
+    const pubs = body.platforms.map((p: string) => ({
+      tenant_id: m.tenant_id,
+      post_id: data.id,
+      platform: p,
+      copy_usada: body.copies_by_platform?.[p] || body.copy,
+      scheduled_for: body.scheduled_for || null,
+      status: "pendente",
+    }));
+    await supabase.from("social_publicacoes").insert(pubs);
+  }
+
   return NextResponse.json(data);
 }
