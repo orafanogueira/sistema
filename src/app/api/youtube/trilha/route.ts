@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { aiChat } from "@/lib/integrations/ai";
 import { gerarMusicaSuno } from "@/lib/youtube/suno-api";
 
-export const maxDuration = 300;
+export const maxDuration = 800;
 
 const PROMPT_OTIMIZADOR = `Voce e especialista em prompts de Suno AI (geracao de musica). Converte o pedido do usuario em um prompt OTIMIZADO em ingles seguindo o estilo Suno.
 

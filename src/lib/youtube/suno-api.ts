@@ -94,8 +94,8 @@ export async function gerarMusicaSuno(opts: {
     throw new Error(`SunoAPI resposta sem clip_ids/task_id. Raw: ${JSON.stringify(created).slice(0, 400)}`);
   }
 
-  // 2. poll ate completar
-  const maxPolls = opts.max_polls || 40;
+  // 2. poll ate completar (90 polls x 4s = 6 min)
+  const maxPolls = opts.max_polls || 90;
   const pollUrl = clipIds.length > 0
     ? `${BASE}/api/v1/suno/clips?ids=${clipIds.join(",")}`
     : `${BASE}/api/v1/suno/task/${taskId}`;
@@ -137,5 +137,5 @@ export async function gerarMusicaSuno(opts: {
     const fail = clips.find((c) => c.status === "error" || c.status === "failed");
     if (fail) throw new Error(`SunoAPI clip falhou: ${fail.status}`);
   }
-  throw new Error("SunoAPI timeout — musica demorou mais de 3min");
+  throw new Error("SunoAPI timeout — musica demorou mais de 6min. Tenta de novo (servidor Suno pode estar lento).");
 }
