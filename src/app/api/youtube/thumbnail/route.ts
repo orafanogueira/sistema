@@ -56,16 +56,26 @@ export async function POST(req: Request) {
       } catch {}
 
       if (thumbsUrls.length > 0) {
-        // Claude Vision analisa
-        try {
-          const anthropic = getAnthropic();
-          const contentParts: Array<
-            | { type: "text"; text: string }
-            | { type: "image"; source: { type: "url"; url: string } }
-          > = [
-            {
-              type: "text",
-              text: `Voce e especialista em thumbnails virais de YouTube. Analise as ${thumbsUrls.length} thumbnails abaixo do canal "${canal.channel_name}" e identifique PADROES visuais em formato JSON:
+        // baixa thumbs, converte pra base64
+        const imagesBase64: Array<{ data: string; media_type: "image/jpeg" | "image/png" }> = [];
+        for (const url of thumbsUrls.slice(0, 4)) {
+          try {
+            const resp = await fetch(url);
+            if (!resp.ok) continue;
+            const buf = Buffer.from(await resp.arrayBuffer());
+            const contentType = resp.headers.get("content-type") || "image/jpeg";
+            const mt = contentType.includes("png") ? "image/png" : "image/jpeg";
+            imagesBase64.push({ data: buf.toString("base64"), media_type: mt });
+          } catch {}
+        }
+
+        if (imagesBase64.length > 0) {
+          try {
+            const anthropic = getAnthropic();
+            const contentParts = [
+              {
+                type: "text" as const,
+                text: `Voce e especialista em thumbnails virais de YouTube. Analise as ${imagesBase64.length} thumbnails abaixo do canal "${canal.channel_name}" e identifique PADROES visuais em formato JSON:
 
 {
   "paleta_cores": "cores dominantes (ex: vermelho + amarelo + preto)",
@@ -77,22 +87,23 @@ export async function POST(req: Request) {
 }
 
 Retorne APENAS o JSON, sem markdown.`,
-            },
-            ...thumbsUrls.map((url) => ({
-              type: "image" as const,
-              source: { type: "url" as const, url },
-            })),
-          ];
+              },
+              ...imagesBase64.map((img) => ({
+                type: "image" as const,
+                source: { type: "base64" as const, media_type: img.media_type, data: img.data },
+              })),
+            ];
 
-          const res = await anthropic.messages.create({
-            model: "claude-sonnet-4-5",
-            max_tokens: 1500,
-            messages: [{ role: "user", content: contentParts }],
-          });
-          const textBlock = res.content.find((b) => b.type === "text");
-          padroes = textBlock && "text" in textBlock ? textBlock.text : "";
-        } catch (e) {
-          console.error("[thumb vision]", e);
+            const res = await anthropic.messages.create({
+              model: "claude-sonnet-4-5",
+              max_tokens: 1500,
+              messages: [{ role: "user", content: contentParts }],
+            });
+            const textBlock = res.content.find((b) => b.type === "text");
+            padroes = textBlock && "text" in textBlock ? textBlock.text : "";
+          } catch (e) {
+            console.error("[thumb vision]", e);
+          }
         }
       }
     }
