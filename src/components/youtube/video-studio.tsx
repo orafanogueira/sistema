@@ -11,7 +11,7 @@ import {
 import { toast } from "@/components/ui/toaster";
 import { removePausesFromAudio } from "@/lib/youtube/remove-pauses";
 
-interface Voice { voice_id: string; name: string; descricao?: string; labels?: Record<string, string> }
+interface Voice { voice_id: string; name: string; descricao?: string; labels?: Record<string, string>; preview_url?: string }
 interface VideoImg { id: string; url: string; ordem: number; prompt: string }
 interface ThumbRes { url: string; padroes_detectados: Record<string, unknown>; thumbs_analisadas: number }
 interface Canal { id: string; channel_name: string }
@@ -23,12 +23,27 @@ export function VideoStudio() {
   const [voices, setVoices] = useState<Voice[]>([]);
   const [vozLoading, setVozLoading] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [previewPlaying, setPreviewPlaying] = useState<string | null>(null);
   const [vozForm, setVozForm] = useState({
     text: "",
     voice_id: "",
     stability: 0.5,
     similarity_boost: 0.75,
   });
+
+  const vozSelecionada = voices.find((v) => v.voice_id === vozForm.voice_id);
+
+  const tocarPreview = () => {
+    if (!vozSelecionada?.preview_url) {
+      toast.error("Essa voz nao tem preview disponivel");
+      return;
+    }
+    const audio = new Audio(vozSelecionada.preview_url);
+    setPreviewPlaying(vozSelecionada.voice_id);
+    audio.onended = () => setPreviewPlaying(null);
+    audio.onerror = () => { setPreviewPlaying(null); toast.error("Erro ao carregar preview"); };
+    audio.play().catch(() => setPreviewPlaying(null));
+  };
 
   // === STEP 2: remove pauses ===
   const [pausasLoading, setPausasLoading] = useState(false);
@@ -49,9 +64,14 @@ export function VideoStudio() {
 
   useEffect(() => {
     fetch("/api/youtube/voz").then((r) => r.json()).then((d) => {
-      const curadas = (d.curadas || []) as Voice[];
-      // junta curadas + outras pt/es/en
-      const outras = (d.voices || []).filter((v: Voice) => !curadas.find((c) => c.voice_id === v.voice_id));
+      const curadasBase = (d.curadas || []) as Voice[];
+      const apiVoices = (d.voices || []) as Voice[];
+      // merge: pra cada curada, puxa preview_url da API se existir
+      const curadas = curadasBase.map((c) => {
+        const apiV = apiVoices.find((v) => v.voice_id === c.voice_id);
+        return apiV ? { ...c, preview_url: apiV.preview_url } : c;
+      });
+      const outras = apiVoices.filter((v) => !curadas.find((c) => c.voice_id === v.voice_id));
       const all = [...curadas, ...outras];
       setVoices(all);
       if (all.length > 0 && !vozForm.voice_id) setVozForm((f) => ({ ...f, voice_id: all[0].voice_id }));
@@ -187,19 +207,29 @@ export function VideoStudio() {
 
             <div>
               <Label>Voz</Label>
-              <select className="mt-1 flex h-10 w-full rounded-md border border-input bg-background/40 px-3 text-sm"
-                value={vozForm.voice_id} onChange={(e) => setVozForm({ ...vozForm, voice_id: e.target.value })}>
-                <optgroup label="Curadas pra canal dark">
-                  {voices.slice(0, 6).map((v) => (
-                    <option key={v.voice_id} value={v.voice_id}>{v.name}{v.descricao ? ` — ${v.descricao}` : ""}</option>
-                  ))}
-                </optgroup>
-                <optgroup label="Todas as vozes">
-                  {voices.slice(6).map((v) => (
-                    <option key={v.voice_id} value={v.voice_id}>{v.name}</option>
-                  ))}
-                </optgroup>
-              </select>
+              <div className="flex gap-2 mt-1">
+                <select className="flex-1 flex h-10 rounded-md border border-input bg-background/40 px-3 text-sm"
+                  value={vozForm.voice_id} onChange={(e) => setVozForm({ ...vozForm, voice_id: e.target.value })}>
+                  <optgroup label="Curadas pra canal dark">
+                    {voices.slice(0, 6).map((v) => (
+                      <option key={v.voice_id} value={v.voice_id}>{v.name}{v.descricao ? ` — ${v.descricao}` : ""}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Todas as vozes">
+                    {voices.slice(6).map((v) => (
+                      <option key={v.voice_id} value={v.voice_id}>{v.name}</option>
+                    ))}
+                  </optgroup>
+                </select>
+                <Button variant="outline" size="icon" onClick={tocarPreview}
+                  disabled={!vozSelecionada?.preview_url || previewPlaying === vozSelecionada?.voice_id}
+                  title={vozSelecionada?.preview_url ? "Ouvir previa" : "Sem preview"}>
+                  {previewPlaying === vozSelecionada?.voice_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                </Button>
+              </div>
+              {!vozSelecionada?.preview_url && vozSelecionada && (
+                <div className="text-[10px] text-muted-foreground mt-1">Essa voz nao tem previa (rara em vozes clonadas)</div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
