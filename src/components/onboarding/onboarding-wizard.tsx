@@ -67,13 +67,23 @@ export function OnboardingWizard() {
         <div className="space-y-2">
           {steps.map((s) => {
             const done = progress[s.key as keyof Progress];
+            const toggle = async () => {
+              const patch = { [s.key]: !done };
+              await fetch("/api/onboarding-progress", {
+                method: "PATCH", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(patch),
+              });
+              setProgress({ ...progress, ...patch } as Progress);
+            };
             return (
               <div key={s.key} className="flex items-center gap-3">
-                {done ? (
-                  <CheckCircle2 className="h-5 w-5 text-green-400 flex-shrink-0" />
-                ) : (
-                  <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                )}
+                <button onClick={toggle} className="flex-shrink-0 hover:scale-110 transition-transform" title={done ? "Desmarcar" : "Marcar como feito"}>
+                  {done ? (
+                    <CheckCircle2 className="h-5 w-5 text-green-400" />
+                  ) : (
+                    <Circle className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </button>
                 <div className="flex-1 min-w-0">
                   <div className={`text-sm font-semibold ${done ? "text-muted-foreground line-through" : ""}`}>{s.label}</div>
                   {!done && <div className="text-xs text-muted-foreground">{s.desc}</div>}

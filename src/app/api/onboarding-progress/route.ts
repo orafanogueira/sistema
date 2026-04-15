@@ -26,8 +26,13 @@ export async function GET() {
     const { count: cobCount } = await supabase.from("cobrancas").select("*", { count: "exact", head: true });
     if ((cobCount || 0) > 0 && !data.step_create_first_charge) updates.step_create_first_charge = true;
 
-    const { count: invitesCount } = await supabase.from("memberships").select("*", { count: "exact", head: true });
-    if ((invitesCount || 0) > 1 && !data.step_invite_team) updates.step_invite_team = true;
+    const { count: membersCount } = await supabase.from("memberships").select("*", { count: "exact", head: true });
+    const { count: pendingInvitesCount } = await supabase.from("team_invites").select("*", { count: "exact", head: true }).eq("tenant_id", m.tenant_id);
+    if (((membersCount || 0) > 1 || (pendingInvitesCount || 0) > 0) && !data.step_invite_team) updates.step_invite_team = true;
+
+    const { count: webhooksCount } = await supabase.from("integrations")
+      .select("*", { count: "exact", head: true }).eq("provider", "meta_ads").not("webhook_verified_at", "is", null);
+    if ((webhooksCount || 0) > 0 && !data.step_configure_webhooks) updates.step_configure_webhooks = true;
 
     if (Object.keys(updates).length > 0) {
       const merged = { ...data, ...updates };
