@@ -60,7 +60,7 @@ export function VideoStudio() {
 
   // === ANIMAR ===
   const [animLoading, setAnimLoading] = useState(false);
-  const [animForm, setAnimForm] = useState({ modelo: "kling", duration: 5, prompt_movimento: "" });
+  const [animForm, setAnimForm] = useState({ modelo: "veo-3-fast", duration: 5, prompt_movimento: "" });
   const [videosAnimados, setVideosAnimados] = useState<Array<{ source_img_id: string; video_url: string }>>([]);
 
   // === STEP 4: thumbnail ===
@@ -518,9 +518,16 @@ export function VideoStudio() {
                           <Label className="text-[10px]">Modelo</Label>
                           <select className="mt-0.5 flex h-8 w-full rounded-md border border-input bg-background/40 px-2 text-xs"
                             value={animForm.modelo} onChange={(e) => setAnimForm({ ...animForm, modelo: e.target.value })}>
-                            <option value="kling">Kling (rapido · ~$0.30)</option>
-                            <option value="ltx">LTX Video (mais barato · ~$0.10)</option>
-                            <option value="luma">Luma Dream (qualidade · ~$0.40)</option>
+                            <optgroup label="Google (usa GEMINI_API_KEY)">
+                              <option value="veo-3">Veo 3 (top qualidade · ~$0.50)</option>
+                              <option value="veo-3-fast">Veo 3 Fast (rapido · ~$0.20)</option>
+                              <option value="veo-2">Veo 2 (mais barato · ~$0.10)</option>
+                            </optgroup>
+                            <optgroup label="fal.ai (precisa FAL_KEY)">
+                              <option value="kling">Kling (~$0.30)</option>
+                              <option value="ltx">LTX Video (~$0.10)</option>
+                              <option value="luma">Luma Dream (~$0.40)</option>
+                            </optgroup>
                           </select>
                         </div>
                         <div>
