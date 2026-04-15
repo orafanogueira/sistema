@@ -128,9 +128,31 @@ export function VideoStudio() {
     link.click();
   };
 
+  const [imgDebug, setImgDebug] = useState<string>("");
+
+  const carregarImagensExistentes = async () => {
+    if (!imgsForm.titulo.trim()) return toast.error("Informe o titulo pra buscar");
+    setImgsLoading(true);
+    try {
+      const r = await fetch(`/api/youtube/imagens-video?titulo=${encodeURIComponent(imgsForm.titulo)}`);
+      if (!r.ok) throw new Error(await r.text());
+      const data = await r.json();
+      const imgs = (data || []).map((d: { id: string; url: string; position: number; prompt_usado?: string }) => ({
+        id: d.id, url: d.url, ordem: (d.position || 0) + 1, prompt: d.prompt_usado || "",
+      }));
+      setImagens(imgs);
+      setSelecionadas(new Set());
+      setImgDebug(`carregadas ${imgs.length} imagens do DB pra titulo "${imgsForm.titulo}"`);
+      toast.success(`${imgs.length} imagens carregadas do historico`);
+    } catch (e: unknown) {
+      toast.error("Erro", e instanceof Error ? e.message : "tente novamente");
+    } finally { setImgsLoading(false); }
+  };
+
   const gerarImagens = async (comImagens: boolean) => {
     if (!imgsForm.titulo.trim()) return toast.error("Informe o titulo");
     setImgsLoading(true); setImagens([]); setApenasPrompts([]); setImgErros([]); setSelecionadas(new Set()); setVideosAnimados([]);
+    setImgDebug("");
     try {
       const r = await fetch("/api/youtube/imagens-video", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -138,6 +160,12 @@ export function VideoStudio() {
       });
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
+      setImgDebug(`resposta: ${JSON.stringify({
+        total_prompts: data.total_prompts,
+        total_imagens: data.total_imagens,
+        imagens_array_len: Array.isArray(data.imagens) ? data.imagens.length : "nao-array",
+        erros_count: Array.isArray(data.erros) ? data.erros.length : 0,
+      })}`);
       if (comImagens) {
         setImagens(data.imagens || []);
         setImgErros(data.erros || []);
@@ -387,14 +415,23 @@ export function VideoStudio() {
                 onChange={(e) => setImgsForm({ ...imgsForm, tema: e.target.value })} />
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <Button variant="outline" onClick={() => gerarImagens(false)} disabled={imgsLoading}>
                 {imgsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "So prompts"}
               </Button>
               <Button onClick={() => gerarImagens(true)} disabled={imgsLoading}>
-                {imgsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Wand2 className="h-4 w-4" /> Prompts + gerar imagens</>}
+                {imgsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Wand2 className="h-4 w-4" /> Prompts + imagens</>}
+              </Button>
+              <Button variant="outline" onClick={carregarImagensExistentes} disabled={imgsLoading} title="Busca imagens ja geradas pelo mesmo titulo">
+                {imgsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Carregar do historico"}
               </Button>
             </div>
+
+            {imgDebug && (
+              <div className="p-2 bg-background/40 border border-border rounded text-[10px] font-mono text-muted-foreground">
+                {imgDebug}
+              </div>
+            )}
 
             {apenasPrompts.length > 0 && (
               <div className="space-y-2">
