@@ -1,0 +1,156 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { getAnthropic } from "@/lib/integrations/ai";
+import { getRecentVideos } from "@/lib/youtube/data-api";
+
+export const maxDuration = 180;
+
+async function geminiImage(prompt: string): Promise<{ data: string; mime: string } | null> {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return null;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${key}`;
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "16:9" } },
+    }),
+  });
+  if (!r.ok) return null;
+  const data = await r.json();
+  type Part = { inlineData?: { data?: string; mimeType?: string } };
+  const part = (data.candidates?.[0]?.content?.parts as Part[] | undefined)?.find((p) => p.inlineData?.data);
+  if (!part?.inlineData?.data) return null;
+  return { data: part.inlineData.data, mime: part.inlineData.mimeType || "image/png" };
+}
+
+/**
+ * Thumbnail magnetica:
+ *  1. Se canal_referencia_id: busca videos recentes do canal, pega 3-5 thumbs
+ *  2. Claude Vision analisa padroes (cores, elementos, layout, fontes, rosto)
+ *  3. Gera prompt pro Gemini baseado no padrao + titulo do video novo
+ *  4. Gemini cria nova thumb 16:9
+ */
+export async function POST(req: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return new NextResponse("unauthorized", { status: 401 });
+  const { data: m } = await supabase.from("memberships").select("tenant_id").eq("user_id", user.id).maybeSingle();
+  if (!m) return new NextResponse("sem tenant", { status: 400 });
+
+  const { titulo, canal_referencia_id, estilo_custom } = await req.json();
+  if (!titulo?.trim()) return new NextResponse("titulo obrigatorio", { status: 400 });
+
+  let padroes = "";
+  let thumbsUrls: string[] = [];
+
+  // 1. se tem canal de referencia, analisa thumbs
+  if (canal_referencia_id) {
+    const { data: canal } = await supabase.from("youtube_canais_minerados")
+      .select("channel_id,channel_name").eq("id", canal_referencia_id).maybeSingle();
+    if (canal) {
+      try {
+        const videos = await getRecentVideos(canal.channel_id, 5);
+        thumbsUrls = videos.map((v) => `https://i.ytimg.com/vi/${v.id}/maxresdefault.jpg`);
+      } catch {}
+
+      if (thumbsUrls.length > 0) {
+        // Claude Vision analisa
+        try {
+          const anthropic = getAnthropic();
+          const contentParts: Array<
+            | { type: "text"; text: string }
+            | { type: "image"; source: { type: "url"; url: string } }
+          > = [
+            {
+              type: "text",
+              text: `Voce e especialista em thumbnails virais de YouTube. Analise as ${thumbsUrls.length} thumbnails abaixo do canal "${canal.channel_name}" e identifique PADROES visuais em formato JSON:
+
+{
+  "paleta_cores": "cores dominantes (ex: vermelho + amarelo + preto)",
+  "tipografia": "estilo de texto (se houver)",
+  "elementos_comuns": "setas, circulos, personagens, objetos, expressoes faciais",
+  "layout": "composicao (ex: texto esquerda + rosto direita, etc)",
+  "mood": "clima emocional (tensao, curiosidade, surpresa)",
+  "diferencial": "o que faz clicar"
+}
+
+Retorne APENAS o JSON, sem markdown.`,
+            },
+            ...thumbsUrls.map((url) => ({
+              type: "image" as const,
+              source: { type: "url" as const, url },
+            })),
+          ];
+
+          const res = await anthropic.messages.create({
+            model: "claude-sonnet-4-5",
+            max_tokens: 1500,
+            messages: [{ role: "user", content: contentParts }],
+          });
+          const textBlock = res.content.find((b) => b.type === "text");
+          padroes = textBlock && "text" in textBlock ? textBlock.text : "";
+        } catch (e) {
+          console.error("[thumb vision]", e);
+        }
+      }
+    }
+  }
+
+  // 2. monta prompt final
+  const promptFinal = `Create a high-impact YouTube thumbnail in 16:9 for this video title: "${titulo}".
+
+${padroes ? `Follow this visual pattern/DNA (reverse-engineered from a successful similar channel):
+${padroes}
+
+Use similar color palette, composition style and emotional mood. But make it unique and representative of the new title.` : ""}
+
+${estilo_custom ? `Additional style: ${estilo_custom}` : ""}
+
+Style requirements:
+- Photorealistic cinematic look
+- High contrast, saturated colors that pop
+- Clear focal point in center or rule-of-thirds
+- Convey strong emotion (curiosity, shock, intrigue)
+- NO text/letters/words in the image (text will be added later)
+- Professional YouTube thumbnail aesthetic (like MrBeast, Casimiro, Dotti style)
+- 1920x1080 quality`;
+
+  // 3. Gemini cria thumb
+  const img = await geminiImage(promptFinal);
+  if (!img) return new NextResponse("Gemini nao gerou imagem", { status: 500 });
+
+  const ext = img.mime.split("/")[1] || "png";
+  const path = `${m.tenant_id}/yt-thumb-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${ext}`;
+  const buffer = Buffer.from(img.data, "base64");
+  const { error: upErr } = await supabase.storage.from("social-media").upload(path, buffer, {
+    contentType: img.mime, upsert: false,
+  });
+  if (upErr) return new NextResponse(`Storage: ${upErr.message}`, { status: 400 });
+  const { data: pub } = supabase.storage.from("social-media").getPublicUrl(path);
+
+  let padroesJson: Record<string, unknown> = {};
+  if (padroes) {
+    try {
+      const match = padroes.match(/\{[\s\S]*\}/);
+      if (match) padroesJson = JSON.parse(match[0]);
+    } catch {}
+  }
+
+  const { data: row } = await supabase.from("youtube_thumbnails").insert({
+    tenant_id: m.tenant_id,
+    canal_referencia_id: canal_referencia_id || null,
+    titulo, prompt_usado: promptFinal,
+    padroes_detectados: padroesJson,
+    url: pub.publicUrl, storage_path: path,
+    created_by: user.id,
+  }).select().single();
+
+  return NextResponse.json({
+    thumbnail: row,
+    url: pub.publicUrl,
+    padroes_detectados: padroesJson,
+    thumbs_analisadas: thumbsUrls.length,
+  });
+}

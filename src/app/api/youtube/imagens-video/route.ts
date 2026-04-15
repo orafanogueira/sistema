@@ -1,0 +1,127 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { aiChat } from "@/lib/integrations/ai";
+
+export const maxDuration = 300;
+
+const SYSTEM = `Voce e diretor de arte especialista em videos de CANAL DARK do YouTube.
+Dado um titulo de video, gera de 8 a 16 prompts de imagem em INGLES para composicao visual do video completo (capa + desenvolvimento + climax + encerramento).
+
+REGRAS DOS PROMPTS:
+- Em INGLES (Gemini performa melhor)
+- Estilo FOTOGRAFICO (cinematic, photorealistic, documentary)
+- 16:9 (paisagem) obrigatorio — descrever composicao horizontal
+- NUNCA pedir texto/letras/palavras na imagem
+- Incluir: iluminacao, angulo, mood, personagens (sem rostos especificos), ambiente
+- Coerencia visual entre as imagens (mesmo estilo/paleta)
+- Progressao narrativa: cenas iniciais, desenvolvimento, momentos de tensao/viradas, encerramento
+
+Output JSON estrito, sem markdown:
+{
+  "prompts": [
+    { "ordem": 1, "descricao_cena": "cena de abertura mostrando X", "prompt_ingles": "cinematic photograph..." },
+    ...
+  ]
+}
+Gere EXATAMENTE a quantidade pedida.`;
+
+async function geminiImage(prompt: string): Promise<{ data: string; mime: string } | null> {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return null;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${key}`;
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "16:9" } },
+    }),
+  });
+  if (!r.ok) return null;
+  const data = await r.json();
+  type Part = { inlineData?: { data?: string; mimeType?: string } };
+  const part = (data.candidates?.[0]?.content?.parts as Part[] | undefined)?.find((p) => p.inlineData?.data);
+  if (!part?.inlineData?.data) return null;
+  return { data: part.inlineData.data, mime: part.inlineData.mimeType || "image/png" };
+}
+
+/**
+ * Gera prompts + imagens pro video:
+ *  - Input: { titulo, qtd (8-16), tema, gerar_imagens }
+ *  - Output: prompts + (se gerar_imagens) URLs das imagens no Storage
+ */
+export async function POST(req: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return new NextResponse("unauthorized", { status: 401 });
+  const { data: m } = await supabase.from("memberships").select("tenant_id").eq("user_id", user.id).maybeSingle();
+  if (!m) return new NextResponse("sem tenant", { status: 400 });
+
+  const { titulo, qtd, tema, gerar_imagens } = await req.json();
+  if (!titulo?.trim()) return new NextResponse("titulo obrigatorio", { status: 400 });
+  const total = Math.max(8, Math.min(16, Number(qtd) || 12));
+
+  // 1) Claude gera prompts
+  const userMsg = `Titulo do video: ${titulo}
+Tema/contexto: ${tema || "(derivar do titulo)"}
+Quantidade de imagens: ${total}`;
+
+  let prompts: Array<{ ordem: number; descricao_cena: string; prompt_ingles: string }>;
+  try {
+    const text = await aiChat({
+      systemPrompt: SYSTEM,
+      messages: [{ role: "user", content: userMsg }],
+      temperature: 0.75,
+      maxTokens: 4000,
+    });
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("Claude nao devolveu JSON");
+    const parsed = JSON.parse(jsonMatch[0]);
+    prompts = (parsed.prompts || []).slice(0, total);
+  } catch (e: unknown) {
+    return new NextResponse(`Claude: ${e instanceof Error ? e.message : "erro"}`, { status: 500 });
+  }
+
+  // 2) Se nao gerar imagens, retorna so os prompts
+  if (!gerar_imagens) {
+    return NextResponse.json({ prompts, total_prompts: prompts.length });
+  }
+
+  // 3) Gera imagens (paralelo com limite 3 concorrentes)
+  const assets: Array<{ id: string; url: string; ordem: number; prompt: string }> = [];
+  const concurrency = 3;
+  for (let i = 0; i < prompts.length; i += concurrency) {
+    const batch = prompts.slice(i, i + concurrency);
+    const results = await Promise.all(batch.map(async (p) => {
+      const img = await geminiImage(p.prompt_ingles);
+      if (!img) return null;
+      const ext = img.mime.split("/")[1] || "png";
+      const path = `${m.tenant_id}/yt-video-${Date.now()}-${p.ordem}-${Math.random().toString(36).slice(2, 6)}.${ext}`;
+      const buffer = Buffer.from(img.data, "base64");
+      const { error: upErr } = await supabase.storage.from("social-media").upload(path, buffer, {
+        contentType: img.mime, upsert: false,
+      });
+      if (upErr) return null;
+      const { data: pub } = supabase.storage.from("social-media").getPublicUrl(path);
+      const { data: row } = await supabase.from("youtube_video_imagens").insert({
+        tenant_id: m.tenant_id,
+        titulo_video: titulo,
+        prompt_usado: p.prompt_ingles,
+        url: pub.publicUrl,
+        storage_path: path,
+        position: p.ordem - 1,
+        aspect_ratio: "16:9",
+        created_by: user.id,
+      }).select().single();
+      return { id: row?.id || "", url: pub.publicUrl, ordem: p.ordem, prompt: p.prompt_ingles };
+    }));
+    for (const r of results) if (r) assets.push(r);
+  }
+
+  return NextResponse.json({
+    prompts,
+    total_prompts: prompts.length,
+    total_imagens: assets.length,
+    imagens: assets,
+  });
+}
