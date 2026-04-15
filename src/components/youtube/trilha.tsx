@@ -79,7 +79,7 @@ export function Trilha() {
 
           <div>
             <Label>Descreva o estilo/mood em portugues</Label>
-            <Textarea className="mt-1 min-h-[100px]" list="exemplos-trilha"
+            <Textarea className="mt-1 min-h-[100px]"
               placeholder="Ex: trilha cinematográfica tensa com piano, estilo documentário investigativo"
               value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} />
             <div className="text-[10px] text-muted-foreground mt-1">
