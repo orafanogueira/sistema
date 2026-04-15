@@ -63,14 +63,48 @@ async function geminiImage(prompt: string): Promise<{ data: string; mime: string
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY ausente no Vercel");
 
-  // forca proporcao no proprio prompt (Gemini nao tem config oficial de aspect ratio)
-  const finalPrompt = `${prompt}\n\nIMPORTANT: Generate in horizontal 16:9 landscape orientation, widescreen format.`;
-
-  // tenta 2 modelos: estavel primeiro, fallback preview
-  const models = ["gemini-2.5-flash-image", "gemini-2.5-flash-image-preview"];
   let lastErr = "";
 
-  for (const model of models) {
+  // Tentativa 1: Imagen 3 via predict endpoint (oficial pra image gen, suporta aspect_ratio)
+  const imagenModels = ["imagen-3.0-generate-002", "imagen-3.0-generate-001", "imagen-3.0-fast-generate-001"];
+  for (const model of imagenModels) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:predict?key=${key}`;
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          instances: [{ prompt }],
+          parameters: { sampleCount: 1, aspectRatio: "16:9", personGeneration: "allow_adult" },
+        }),
+      });
+      if (!r.ok) {
+        const txt = await r.text();
+        lastErr = `${model} ${r.status}: ${txt.slice(0, 200)}`;
+        continue;
+      }
+      const data = await r.json();
+      const pred = data.predictions?.[0];
+      const b64 = pred?.bytesBase64Encoded || pred?.image?.bytesBase64Encoded;
+      if (!b64) {
+        lastErr = `${model}: predictions sem bytesBase64Encoded`;
+        continue;
+      }
+      return { data: b64, mime: pred.mimeType || "image/png" };
+    } catch (e: unknown) {
+      lastErr = e instanceof Error ? e.message : "erro";
+    }
+  }
+
+  // Tentativa 2: Gemini 2.0 Flash Exp (com image generation)
+  const geminiModels = [
+    "gemini-2.0-flash-preview-image-generation",
+    "gemini-2.0-flash-exp-image-generation",
+    "gemini-2.0-flash-exp",
+  ];
+  const finalPrompt = `${prompt}\n\nGenerate in horizontal 16:9 landscape orientation, widescreen format.`;
+
+  for (const model of geminiModels) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
       const r = await fetch(url, {
@@ -78,7 +112,7 @@ async function geminiImage(prompt: string): Promise<{ data: string; mime: string
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: finalPrompt }] }],
-          generationConfig: { responseModalities: ["IMAGE"] },
+          generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
         }),
       });
       if (!r.ok) {
@@ -102,7 +136,7 @@ async function geminiImage(prompt: string): Promise<{ data: string; mime: string
     }
   }
 
-  throw new Error(`Gemini falhou todos modelos: ${lastErr}`);
+  throw new Error(`Todos modelos Imagen+Gemini falharam. Ultimo erro: ${lastErr}`);
 }
 
 /**
