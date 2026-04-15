@@ -38,7 +38,7 @@ export async function GET() {
       const merged = { ...data, ...updates };
       const all = [merged.step_import_clients, merged.step_connect_meta, merged.step_create_agent_ia,
                    merged.step_create_first_charge, merged.step_invite_team, merged.step_configure_webhooks];
-      if (all.filter(Boolean).length >= 4) {
+      if (all.filter(Boolean).length >= 6) {
         updates.completed = true as unknown as boolean;
       }
       await supabase.from("onboarding_progress").update(updates).eq("tenant_id", m.tenant_id);
