@@ -40,6 +40,7 @@ export function NovoPostButton({ clientes }: { clientes: { id: string; nome: str
     title: "",
     briefing: "",
     format: "feed",
+    slides_count: 5,
     copy_base: "",
     scheduled_for: "",
     platforms: ["instagram"] as string[],
@@ -194,6 +195,15 @@ export function NovoPostButton({ clientes }: { clientes: { id: string; nome: str
                     </button>
                   ))}
                 </div>
+                {form.format === "carrossel" && (
+                  <div className="mt-2 flex items-center gap-3">
+                    <Label className="whitespace-nowrap">Qtd de slides:</Label>
+                    <Input type="number" min={2} max={10} className="w-20"
+                      value={form.slides_count}
+                      onChange={(e) => setForm({ ...form, slides_count: Math.min(10, Math.max(2, Number(e.target.value) || 2)) })} />
+                    <span className="text-xs text-muted-foreground">Min 2, max 10 (limite IG)</span>
+                  </div>
+                )}
               </div>
 
               {/* plataformas */}
@@ -234,25 +244,38 @@ export function NovoPostButton({ clientes }: { clientes: { id: string; nome: str
                     </Button>
                   </div>
                 </div>
-                {assets.length > 0 && (
-                  <div className="grid grid-cols-5 gap-2 mt-3">
-                    {assets.map((a, i) => (
-                      <div key={a.id} className="relative group aspect-square rounded-md overflow-hidden border border-border">
-                        {a.tipo === "video" ? (
-                          <div className="flex items-center justify-center h-full bg-background">
-                            <Video className="h-6 w-6 text-muted-foreground" />
-                          </div>
-                        ) : (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={a.url} alt="" className="w-full h-full object-cover" />
-                        )}
-                        <button onClick={() => removeAsset(a.id)}
-                          className="absolute top-1 right-1 h-5 w-5 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100">
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                        <Badge className="absolute bottom-1 left-1 text-[9px]" variant="secondary">{i + 1}</Badge>
+                {(assets.length > 0 || form.format === "carrossel") && (
+                  <div className="mt-3">
+                    {form.format === "carrossel" && (
+                      <div className="text-xs text-muted-foreground mb-2">
+                        Progresso: {assets.length}/{form.slides_count} slides
                       </div>
-                    ))}
+                    )}
+                    <div className="grid grid-cols-5 gap-2">
+                      {assets.map((a, i) => (
+                        <div key={a.id} className="relative group aspect-square rounded-md overflow-hidden border border-border">
+                          {a.tipo === "video" ? (
+                            <div className="flex items-center justify-center h-full bg-background">
+                              <Video className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                          ) : (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={a.url} alt="" className="w-full h-full object-cover" />
+                          )}
+                          <button onClick={() => removeAsset(a.id)}
+                            className="absolute top-1 right-1 h-5 w-5 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100">
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                          <Badge className="absolute bottom-1 left-1 text-[9px]" variant="secondary">Slide {i + 1}</Badge>
+                        </div>
+                      ))}
+                      {form.format === "carrossel" && Array.from({ length: Math.max(0, form.slides_count - assets.length) }).map((_, i) => (
+                        <div key={`placeholder-${i}`}
+                          className="aspect-square rounded-md border border-dashed border-border flex items-center justify-center text-[10px] text-muted-foreground">
+                          Slide {assets.length + i + 1}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
