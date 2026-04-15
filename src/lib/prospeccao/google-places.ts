@@ -43,7 +43,7 @@ async function placesFetch<T>(path: string, body: object, fieldMask: string): Pr
 }
 
 /** Text Search: busca empresas por termo livre + cidade. */
-export async function searchPlaces(query: string, maxResults = 50): Promise<PlaceResult[]> {
+export async function searchPlaces(query: string, maxResults = 50, regionCode = "BR", languageCode = "pt-BR"): Promise<PlaceResult[]> {
   const fieldMask = [
     "places.id", "places.displayName", "places.formattedAddress",
     "places.internationalPhoneNumber", "places.nationalPhoneNumber",
@@ -66,9 +66,9 @@ export async function searchPlaces(query: string, maxResults = 50): Promise<Plac
   };
   const data = await placesFetch<{ places?: RawPlace[] }>("/places:searchText", {
     textQuery: query,
-    pageSize: Math.min(maxResults, 20),  // max 20 por pagina na API nova
-    languageCode: "pt-BR",
-    regionCode: "BR",
+    pageSize: Math.min(maxResults, 20),
+    languageCode,
+    regionCode,
   }, fieldMask);
 
   return (data.places || []).map((p) => ({
@@ -86,12 +86,14 @@ export async function searchPlaces(query: string, maxResults = 50): Promise<Plac
   }));
 }
 
-/** Normaliza telefone BR pra formato wa.me (55 + DDD + numero). */
-export function phoneToWhatsApp(phone?: string): string | null {
+/** Normaliza telefone pra formato wa.me (country code + numero). */
+export function phoneToWhatsApp(phone?: string, country = "BR"): string | null {
   if (!phone) return null;
   const digits = phone.replace(/\D/g, "");
   if (!digits) return null;
-  if (digits.startsWith("55")) return digits;
-  if (digits.length >= 10) return `55${digits}`;
+  const cc = country === "US" ? "1" : "55";
+  if (digits.startsWith(cc)) return digits;
+  // numero ja vem com +55/+1 do Google (internationalPhoneNumber) entao raramente entra aqui
+  if (digits.length >= 10) return `${cc}${digits}`;
   return null;
 }

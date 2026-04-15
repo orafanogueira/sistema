@@ -7,12 +7,19 @@ import { Plus, X, Loader2, Sparkles } from "lucide-react";
 import { toast } from "@/components/ui/toaster";
 import { useRouter } from "next/navigation";
 
-const SEGMENTOS_SUGERIDOS = [
+const SEGMENTOS_BR = [
   "oficinas mecanicas", "clinicas odontologicas", "clinicas medicas",
   "academias", "salões de beleza", "advocacia", "contabilidade",
   "imobiliarias", "lojas de roupa", "restaurantes", "pet shops",
   "concessionarias de veiculos", "autoescolas", "escolas particulares",
   "clinicas veterinarias", "corretoras de seguros", "construtoras",
+];
+const SEGMENTOS_US = [
+  "auto repair shops", "dental clinics", "medical clinics",
+  "gyms", "beauty salons", "law firms", "accounting firms",
+  "real estate agencies", "clothing stores", "restaurants", "pet stores",
+  "car dealerships", "driving schools", "private schools",
+  "veterinary clinics", "insurance brokers", "construction companies",
 ];
 
 export function NovaListaButton() {
@@ -20,8 +27,9 @@ export function NovaListaButton() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const [form, setForm] = useState({
-    name: "", segmento: "", cidade: "", estado: "SP", qtd_alvo: 20,
+    name: "", segmento: "", cidade: "", estado: "SP", qtd_alvo: 20, pais: "BR",
   });
+  const segmentos = form.pais === "US" ? SEGMENTOS_US : SEGMENTOS_BR;
 
   const save = async () => {
     if (!form.segmento.trim() || !form.cidade.trim())
@@ -62,25 +70,36 @@ export function NovaListaButton() {
 
             <div className="space-y-3">
               <div>
+                <Label>Pais</Label>
+                <select className="mt-1 flex h-10 w-full rounded-md border border-input bg-background/40 px-3 text-sm"
+                  value={form.pais} onChange={(e) => setForm({ ...form, pais: e.target.value, segmento: "", estado: e.target.value === "US" ? "CA" : "SP" })}>
+                  <option value="BR">🇧🇷 Brasil</option>
+                  <option value="US">🇺🇸 Estados Unidos</option>
+                </select>
+              </div>
+
+              <div>
                 <Label>Segmento</Label>
                 <Input className="mt-1" list="segmentos"
-                  placeholder="Ex: oficinas mecanicas"
+                  placeholder={form.pais === "US" ? "Ex: auto repair shops" : "Ex: oficinas mecanicas"}
                   value={form.segmento} onChange={(e) => setForm({ ...form, segmento: e.target.value })} />
                 <datalist id="segmentos">
-                  {SEGMENTOS_SUGERIDOS.map((s) => <option key={s} value={s} />)}
+                  {segmentos.map((s) => <option key={s} value={s} />)}
                 </datalist>
-                <div className="text-xs text-muted-foreground mt-1">Ex: "oficinas mecanicas", "academias", "clinicas odontologicas"</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {form.pais === "US" ? "Use termos em ingles pra melhor resultado" : "Termos em portugues"}
+                </div>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2">
                   <Label>Cidade</Label>
-                  <Input className="mt-1" placeholder="Sorocaba"
+                  <Input className="mt-1" placeholder={form.pais === "US" ? "Austin" : "Sorocaba"}
                     value={form.cidade} onChange={(e) => setForm({ ...form, cidade: e.target.value })} />
                 </div>
                 <div>
-                  <Label>Estado</Label>
-                  <Input className="mt-1" placeholder="SP" maxLength={2}
+                  <Label>{form.pais === "US" ? "State" : "Estado"}</Label>
+                  <Input className="mt-1" placeholder={form.pais === "US" ? "TX" : "SP"} maxLength={2}
                     value={form.estado} onChange={(e) => setForm({ ...form, estado: e.target.value.toUpperCase() })} />
                 </div>
               </div>

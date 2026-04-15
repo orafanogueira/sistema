@@ -18,8 +18,9 @@ export async function POST(req: Request) {
   const { data: m } = await supabase.from("memberships").select("tenant_id").eq("user_id", user.id).maybeSingle();
   if (!m) return new NextResponse("sem tenant", { status: 400 });
 
-  const { name, segmento, cidade, estado, qtd_alvo } = await req.json();
+  const { name, segmento, cidade, estado, qtd_alvo, pais } = await req.json();
   if (!segmento || !cidade) return new NextResponse("segmento e cidade obrigatorios", { status: 400 });
+  const country = pais === "US" ? "US" : "BR";
 
   // 1. cria lista
   const { data: lista, error } = await supabase.from("prospeccao_listas").insert({
@@ -32,10 +33,12 @@ export async function POST(req: Request) {
   if (error) return new NextResponse(error.message, { status: 400 });
 
   // 2. busca Google Places
-  const query = `${segmento} em ${cidade}${estado ? ", " + estado : ""}`;
+  const preposition = country === "US" ? "in" : "em";
+  const query = `${segmento} ${preposition} ${cidade}${estado ? ", " + estado : ""}`;
+  const languageCode = country === "US" ? "en-US" : "pt-BR";
   let places;
   try {
-    places = await searchPlaces(query, lista.qtd_alvo);
+    places = await searchPlaces(query, lista.qtd_alvo, country, languageCode);
   } catch (e: unknown) {
     await supabase.from("prospeccao_listas").update({ status: "pausada" }).eq("id", lista.id);
     return new NextResponse(`Erro Google Places: ${e instanceof Error ? e.message : "unknown"}`, { status: 500 });
@@ -47,7 +50,7 @@ export async function POST(req: Request) {
 
   // 3. insere leads (upsert por place_id pra nao duplicar)
   const leads = places.map((p, i) => {
-    const whats = phoneToWhatsApp(p.telefone);
+    const whats = phoneToWhatsApp(p.telefone, country);
     return {
       tenant_id: m.tenant_id,
       lista_id: lista.id,
