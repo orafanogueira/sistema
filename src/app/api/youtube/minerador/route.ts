@@ -58,11 +58,37 @@ export async function POST(req: Request) {
   // 3. stats
   const channels = await getChannels(channelIds);
 
+  // helpers de pais/idioma por regiao
+  const acceptedCountries: Record<string, string[]> = {
+    BR: ["BR", "PT"],
+    US: ["US", "CA", "GB", "AU", "IE", "NZ"],
+    PT: ["PT", "BR"],
+    MX: ["MX", "AR", "CO", "ES", "CL", "PE"],
+    ES: ["ES", "MX", "AR", "CO"],
+  };
+  const acceptedLangPrefix: Record<string, string> = {
+    BR: "pt", US: "en", PT: "pt", MX: "es", ES: "es",
+  };
+  const countries = acceptedCountries[pais] || [];
+  const langPrefix = acceptedLangPrefix[pais] || "";
+
   // 4. filtra + enriquece
   const oportunidades = channels.filter((c) => {
     const sub = Number(c.statistics?.subscriberCount || 0);
     const vid = Number(c.statistics?.videoCount || 0);
-    return sub >= min_inscritos && sub <= max_inscritos && vid <= max_videos && vid >= 3;
+    if (!(sub >= min_inscritos && sub <= max_inscritos && vid <= max_videos && vid >= 3)) return false;
+
+    // filtro de pais/idioma real do canal
+    const canalPais = c.snippet?.country || c.brandingSettings?.channel?.country;
+    const canalLang = c.snippet?.defaultLanguage || c.brandingSettings?.channel?.defaultLanguage || "";
+
+    // se canal tem pais setado, exige que bata com os aceitos da regiao
+    if (canalPais && countries.length > 0 && !countries.includes(canalPais)) return false;
+
+    // se canal tem idioma setado e nao bate com prefixo da regiao, rejeita
+    if (canalLang && langPrefix && !canalLang.toLowerCase().startsWith(langPrefix)) return false;
+
+    return true;
   }).slice(0, 30);  // limita processing
 
   // 5. pra top 15, pega videos recentes

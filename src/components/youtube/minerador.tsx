@@ -16,11 +16,21 @@ interface Canal {
   thumbnail_url: string | null;
 }
 
-const CATEGORIAS = [
+const CATEGORIAS_BR = [
   "historias emocionantes", "canal dark financas", "curiosidades", "misterios",
   "relacionamentos", "vida pessoal", "motivacional", "noticias surreais",
   "historias reais", "conspiracao", "sobrevivencia", "relatos",
   "historias de terror", "casos reais policiais",
+];
+const CATEGORIAS_US = [
+  "emotional stories", "dark finance channel", "weird facts", "mystery stories",
+  "relationship stories", "life hacks", "motivational", "shocking news",
+  "true stories", "conspiracy theories", "survival stories", "reddit stories",
+  "horror stories", "true crime cases",
+];
+const CATEGORIAS_ES = [
+  "historias emocionantes", "finanzas canal dark", "curiosidades", "misterios",
+  "historias reales", "supervivencia", "casos reales", "historias de terror",
 ];
 
 export function Minerador() {
@@ -30,6 +40,9 @@ export function Minerador() {
   const [form, setForm] = useState({
     categoria: "", pais: "BR", min_inscritos: 1000, max_inscritos: 100000, max_videos: 50,
   });
+  const categorias = form.pais === "US" ? CATEGORIAS_US
+    : (form.pais === "MX" || form.pais === "ES") ? CATEGORIAS_ES
+    : CATEGORIAS_BR;
 
   const minerar = async () => {
     if (!form.categoria.trim()) return toast.error("Informe uma categoria");
@@ -62,8 +75,13 @@ export function Minerador() {
               placeholder="Ex: historias emocionantes, canal dark financas"
               value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })} />
             <datalist id="cats-yt">
-              {CATEGORIAS.map((c) => <option key={c} value={c} />)}
+              {categorias.map((c) => <option key={c} value={c} />)}
             </datalist>
+            <div className="text-[10px] text-muted-foreground mt-1">
+              {form.pais === "US" ? "Use termos em ingles pra pegar canais americanos" :
+               form.pais === "MX" || form.pais === "ES" ? "Use termos em espanhol" :
+               "Use termos em portugues"}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
