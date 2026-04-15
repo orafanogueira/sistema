@@ -1,9 +1,12 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { CopilotFab } from "@/components/copilot/copilot-fab";
 import { Toaster } from "@/components/ui/toaster";
+import { getAccessContext } from "@/lib/access/server";
+import { hasAnyProduct, productsRequiredFor } from "@/lib/access/products";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -17,9 +20,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const tenantName = (membership?.tenant as { name?: string } | null)?.name || "Sem tenant";
   const userName = profile?.full_name || user.email?.split("@")[0] || "Usuario";
 
+  // Access gating por produto
+  const access = await getAccessContext();
+  const h = await headers();
+  const pathname = h.get("x-pathname") || h.get("x-invoke-path") || "";
+  const required = productsRequiredFor(pathname);
+  const allowed = hasAnyProduct(access.activeProducts, required, access.isMaster);
+  if (!allowed) redirect("/planos");
+
   return (
     <div className="min-h-screen">
-      <Sidebar tenantName={tenantName} />
+      <Sidebar tenantName={tenantName} activeProducts={access.activeProducts} isMaster={access.isMaster} />
       <div className="pl-64">
         <Topbar userName={userName} />
         <main className="p-6">{children}</main>

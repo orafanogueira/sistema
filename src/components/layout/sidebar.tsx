@@ -9,6 +9,7 @@ import {
   MessageSquare, Search, Share2, Heart, Phone, Youtube,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { productsRequiredFor } from "@/lib/access/products";
 
 const NAV = [
   { section: "Geral", items: [
@@ -65,12 +66,27 @@ const NAV = [
   ]},
   { section: "Sistema", items: [
     { href: "/integracoes", label: "Integracoes", icon: Plug },
+    { href: "/planos", label: "Planos & Soluções", icon: Sparkles },
     { href: "/configuracoes", label: "Configuracoes", icon: Settings },
   ]},
 ];
 
-export function Sidebar({ tenantName }: { tenantName: string }) {
+export function Sidebar({ tenantName, activeProducts = [], isMaster = false }: { tenantName: string; activeProducts?: string[]; isMaster?: boolean }) {
   const pathname = usePathname();
+
+  // filtra items por produto ativo
+  const filteredNav = NAV
+    .map((sec) => ({
+      ...sec,
+      items: sec.items.filter((it) => {
+        const required = productsRequiredFor(it.href);
+        if (isMaster) return true;
+        if (!required) return true;
+        return required.some((p) => activeProducts.includes(p));
+      }),
+    }))
+    .filter((sec) => sec.items.length > 0);
+
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-card/40 border-r border-border flex flex-col glass">
       <div className="h-16 px-5 flex items-center border-b border-border">
@@ -85,7 +101,7 @@ export function Sidebar({ tenantName }: { tenantName: string }) {
         </div>
       </div>
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
-        {NAV.map((sec) => (
+        {filteredNav.map((sec) => (
           <div key={sec.section}>
             <div className="px-2 pb-2 text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
               {sec.section}
