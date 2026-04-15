@@ -3,7 +3,7 @@ import { useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
-import { X, Loader2, Phone, MessageCircle, Globe, Star, MapPin, Mail, Calendar, Save } from "lucide-react";
+import { X, Loader2, Phone, MessageCircle, Globe, Star, MapPin, Mail, Calendar, Save, Sparkles, Copy, Check } from "lucide-react";
 import { toast } from "@/components/ui/toaster";
 
 interface Lead {
@@ -48,8 +48,41 @@ export function LeadDetalheDialog({ lead, onClose, onUpdate }: {
   onClose: () => void;
   onUpdate: (patch: Partial<Lead>) => void;
 }) {
-  const [tab, setTab] = useState<"info" | "atividade" | "agendar">("info");
+  const [tab, setTab] = useState<"info" | "atividade" | "agendar" | "ia">("info");
   const [loading, setLoading] = useState(false);
+
+  // IA tab state
+  const [iaLoading, setIaLoading] = useState(false);
+  const [iaTipo, setIaTipo] = useState<"script" | "whatsapp">("script");
+  const [iaOutput, setIaOutput] = useState<string>("");
+  const [copied, setCopied] = useState(false);
+
+  const gerarIA = async () => {
+    setIaLoading(true);
+    setIaOutput("");
+    try {
+      const endpoint = iaTipo === "script" ? "script-ligacao" : "mensagem-whatsapp";
+      const r = await fetch(`/api/prospeccao/agentes/${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lead_id: lead.id }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const data = await r.json();
+      setIaOutput(iaTipo === "script" ? data.script : data.mensagens);
+    } catch (e: unknown) {
+      toast.error("Erro IA", e instanceof Error ? e.message : "tente novamente");
+    } finally {
+      setIaLoading(false);
+    }
+  };
+
+  const copyIA = () => {
+    if (!iaOutput) return;
+    navigator.clipboard.writeText(iaOutput);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
 
   // Info tab state
   const [info, setInfo] = useState({
@@ -189,11 +222,14 @@ export function LeadDetalheDialog({ lead, onClose, onUpdate }: {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-1 mb-4 border-b border-border">
-            {(["info", "atividade", "agendar"] as const).map((t) => (
+          <div className="flex gap-1 mb-4 border-b border-border overflow-x-auto">
+            {(["info", "atividade", "agendar", "ia"] as const).map((t) => (
               <button key={t} onClick={() => setTab(t)}
-                className={`px-3 py-2 text-sm font-semibold border-b-2 transition-colors ${tab === t ? "border-cyan text-cyan" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
-                {t === "info" ? "Info" : t === "atividade" ? "Registrar atividade" : "Agendar reuniao"}
+                className={`px-3 py-2 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap flex items-center gap-1 ${tab === t ? "border-cyan text-cyan" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+                {t === "info" && "Info"}
+                {t === "atividade" && "Registrar atividade"}
+                {t === "agendar" && "Agendar reuniao"}
+                {t === "ia" && <><Sparkles className="h-3 w-3" /> IA</>}
               </button>
             ))}
           </div>
@@ -326,6 +362,46 @@ export function LeadDetalheDialog({ lead, onClose, onUpdate }: {
               <Button onClick={saveAgendamento} disabled={loading} className="w-full">
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Calendar className="h-4 w-4" /> Agendar</>}
               </Button>
+            </div>
+          )}
+
+          {tab === "ia" && (
+            <div className="space-y-3">
+              <div>
+                <Label>O que gerar?</Label>
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  <button onClick={() => { setIaTipo("script"); setIaOutput(""); }}
+                    className={`p-3 rounded-md border text-sm font-semibold transition-colors ${iaTipo === "script" ? "border-cyan bg-cyan/10 text-cyan" : "border-border hover:border-cyan/50"}`}>
+                    <Phone className="h-4 w-4 mx-auto mb-1" />
+                    Script de ligacao
+                    <div className="text-[10px] font-normal text-muted-foreground mt-1">abertura + objecoes</div>
+                  </button>
+                  <button onClick={() => { setIaTipo("whatsapp"); setIaOutput(""); }}
+                    className={`p-3 rounded-md border text-sm font-semibold transition-colors ${iaTipo === "whatsapp" ? "border-cyan bg-cyan/10 text-cyan" : "border-border hover:border-cyan/50"}`}>
+                    <MessageCircle className="h-4 w-4 mx-auto mb-1" />
+                    Mensagem WhatsApp
+                    <div className="text-[10px] font-normal text-muted-foreground mt-1">3 variacoes</div>
+                  </button>
+                </div>
+              </div>
+
+              <Button onClick={gerarIA} disabled={iaLoading} className="w-full">
+                {iaLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Gerando...</> : <><Sparkles className="h-4 w-4" /> Gerar com IA</>}
+              </Button>
+
+              {iaOutput && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Resultado</Label>
+                    <Button size="sm" variant="outline" onClick={copyIA}>
+                      {copied ? <><Check className="h-3 w-3" /> Copiado!</> : <><Copy className="h-3 w-3" /> Copiar</>}
+                    </Button>
+                  </div>
+                  <div className="p-3 bg-background/40 border border-border rounded whitespace-pre-wrap text-sm font-mono max-h-[400px] overflow-y-auto">
+                    {iaOutput}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </Dialog.Content>
