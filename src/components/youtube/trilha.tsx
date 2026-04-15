@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
@@ -32,13 +32,30 @@ const EXEMPLOS = [
   "música motivacional com guitarra acústica e batida crescente",
 ];
 
+interface TrilhaHist {
+  id: string; tipo: string; prompt_descricao: string; titulo_variacao?: string;
+  duracao_sec?: number; url: string; url_variacao_2?: string; created_at: string;
+}
+
 export function Trilha() {
   const [loading, setLoading] = useState(false);
   const [letraLoading, setLetraLoading] = useState(false);
   const [result, setResult] = useState<{
     url: string; url_variacao_2?: string; prompt_suno: string; duracao?: number;
   } | null>(null);
+  const [historico, setHistorico] = useState<TrilhaHist[]>([]);
   const [copied, setCopied] = useState(false);
+
+  const loadHistorico = async () => {
+    try {
+      const r = await fetch("/api/youtube/trilha");
+      if (!r.ok) return;
+      const data = await r.json();
+      setHistorico(data || []);
+    } catch {}
+  };
+
+  useEffect(() => { loadHistorico(); }, []);
   const [form, setForm] = useState({
     descricao: "",
     tipo: "background",
@@ -81,6 +98,7 @@ export function Trilha() {
       const data = await r.json();
       setResult(data);
       toast.success("Música gerada", `${data.duracao ? Math.round(data.duracao) + "s" : "pronta"}`);
+      loadHistorico();
     } catch (e: unknown) {
       toast.error("Erro", e instanceof Error ? e.message : "tente novamente");
     } finally { setLoading(false); }
@@ -224,6 +242,46 @@ export function Trilha() {
                 {result.prompt_suno}
               </div>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {historico.length > 0 && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm">Suas trilhas geradas ({historico.length})</CardTitle>
+              <Button size="sm" variant="ghost" onClick={loadHistorico}>↻ Atualizar</Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {historico.map((t) => (
+              <div key={t.id} className="border border-border rounded p-3 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-sm line-clamp-1">
+                      {t.titulo_variacao || t.prompt_descricao.slice(0, 60)}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      <Badge variant="outline" className="text-[9px] mr-1">{t.tipo}</Badge>
+                      {t.duracao_sec && <span>{Math.round(t.duracao_sec)}s · </span>}
+                      {new Date(t.created_at).toLocaleString("pt-BR")}
+                    </div>
+                  </div>
+                </div>
+                <audio src={t.url} controls className="w-full" />
+                <div className="flex gap-2">
+                  <a href={t.url} download={`trilha-${t.id.slice(0, 6)}-v1.mp3`} className="flex-1">
+                    <Button size="sm" variant="outline" className="w-full"><Download className="h-3 w-3" /> v1</Button>
+                  </a>
+                  {t.url_variacao_2 && (
+                    <a href={t.url_variacao_2} download={`trilha-${t.id.slice(0, 6)}-v2.mp3`} className="flex-1">
+                      <Button size="sm" variant="outline" className="w-full"><Download className="h-3 w-3" /> v2</Button>
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
           </CardContent>
         </Card>
       )}
