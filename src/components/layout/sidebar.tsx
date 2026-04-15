@@ -6,7 +6,7 @@ import {
   Video, MessagesSquare, Mail, Bot, Plug, Settings, Building2,
   Target, Car, Zap, Workflow, Sparkles, Calendar, Image, Bell,
   Activity, Link2, FileText, DollarSign, Receipt, Instagram,
-  MessageSquare, Search, Share2, Heart, Phone,
+  MessageSquare, Search, Share2, Heart, Phone, Youtube,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -45,6 +45,7 @@ const NAV = [
     { href: "/agentes-ia", label: "Agentes IA", icon: Sparkles },
     { href: "/atendimento-ia", label: "Atendimento IA", icon: Bot },
     { href: "/criativos", label: "Criativos IA", icon: Image },
+    { href: "/youtube", label: "YouTube IA", icon: Youtube },
   ]},
   { section: "Performance", items: [
     { href: "/utm-builder", label: "UTM Builder", icon: Link2 },
