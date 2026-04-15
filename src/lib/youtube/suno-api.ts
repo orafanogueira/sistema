@@ -50,18 +50,22 @@ export async function gerarMusicaSuno(opts: {
   //  - custom_mode=true: user define prompt/tags/title manualmente
   const custom = !!(opts.lyrics || opts.tags);
 
+  // tags max 180 chars (limite Suno e 200)
+  const tagsRaw = opts.tags || opts.prompt;
+  const tags = tagsRaw.slice(0, 180);
+
   const body: Record<string, unknown> = custom
     ? {
         custom_mode: true,
         prompt: opts.lyrics || opts.prompt,
         title: opts.title || "Untitled",
-        tags: opts.tags || opts.prompt,
+        tags,
         make_instrumental: opts.make_instrumental ?? false,
         mv: "chirp-v3-5",
       }
     : {
         custom_mode: false,
-        gpt_description_prompt: opts.prompt,
+        gpt_description_prompt: opts.prompt.slice(0, 380),
         make_instrumental: opts.make_instrumental ?? false,
         mv: "chirp-v3-5",
       };

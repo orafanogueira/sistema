@@ -65,8 +65,13 @@ async function geminiImage(prompt: string): Promise<{ data: string; mime: string
 
   let lastErr = "";
 
-  // Tentativa 1: Imagen 3 via predict endpoint (oficial pra image gen, suporta aspect_ratio)
-  const imagenModels = ["imagen-3.0-generate-002", "imagen-3.0-generate-001", "imagen-3.0-fast-generate-001"];
+  // Tentativa 1: Imagen 4 (mais novo) via predict endpoint (suporta aspect_ratio)
+  const imagenModels = [
+    "imagen-4.0-generate-001",
+    "imagen-4.0-fast-generate-001",
+    "imagen-4.0-ultra-generate-001",
+    "imagen-3.0-generate-001",
+  ];
   for (const model of imagenModels) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:predict?key=${key}`;
@@ -96,11 +101,12 @@ async function geminiImage(prompt: string): Promise<{ data: string; mime: string
     }
   }
 
-  // Tentativa 2: Gemini 2.0 Flash Exp (com image generation)
+  // Tentativa 2: Gemini com image gen (Nano Banana Pro + Gemini 3 Pro Image + 2.5 flash image)
   const geminiModels = [
-    "gemini-2.0-flash-preview-image-generation",
-    "gemini-2.0-flash-exp-image-generation",
-    "gemini-2.0-flash-exp",
+    "nano-banana-pro-preview",
+    "gemini-3-pro-image-preview",
+    "gemini-3.1-flash-image-preview",
+    "gemini-2.5-flash-image",
   ];
   const finalPrompt = `${prompt}\n\nGenerate in horizontal 16:9 landscape orientation, widescreen format.`;
 

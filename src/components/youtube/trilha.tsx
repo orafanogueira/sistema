@@ -13,12 +13,15 @@ const TIPOS = [
   { value: "musica_completa", label: "Música completa com letra" },
 ];
 
-const ESTILOS = [
-  "cinematic dark", "cinematic epic", "lo-fi hip hop", "trap brasileiro", "trap dark",
-  "sertanejo emocional", "pop motivacional", "ambient piano", "orchestral epic",
-  "edm electronic", "rock alternativo", "indie folk", "synthwave", "country acoustic",
-  "rap consciente", "funk brasileiro", "bossa nova", "samba", "reggaeton",
-  "house tropical", "drill", "phonk", "retro 80s", "jazz noir",
+// Suno gera tipicamente entre 30s e 4min. Esse valor entra como sugestao no prompt.
+const DURACOES_SUGERIDAS = [
+  { value: 15, label: "15s (jingle/abertura)" },
+  { value: 30, label: "30s (intro curta)" },
+  { value: 60, label: "60s (1 minuto)" },
+  { value: 90, label: "90s (1m30s)" },
+  { value: 120, label: "2 minutos" },
+  { value: 180, label: "3 minutos" },
+  { value: 240, label: "4 minutos" },
 ];
 
 const EXEMPLOS = [
@@ -40,7 +43,7 @@ export function Trilha() {
     descricao: "",
     tipo: "background",
     instrumental: true,
-    estilo: "cinematic dark",
+    duracao_seg: 60,
     titulo: "",
     letra: "",
     tema_letra: "",
@@ -53,7 +56,7 @@ export function Trilha() {
     try {
       const r = await fetch("/api/youtube/letra-musica", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tema: form.tema_letra, estilo: form.estilo, idioma: form.idioma_letra }),
+        body: JSON.stringify({ tema: form.tema_letra, estilo: form.descricao, idioma: form.idioma_letra }),
       });
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
@@ -69,7 +72,7 @@ export function Trilha() {
     setLoading(true);
     setResult(null);
     try {
-      const descCompleta = `${form.descricao}${form.estilo ? ` - estilo ${form.estilo}` : ""}`;
+      const descCompleta = `${form.descricao}, duration approximately ${form.duracao_seg} seconds`;
       const r = await fetch("/api/youtube/trilha", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, descricao: descCompleta }),
@@ -109,11 +112,12 @@ export function Trilha() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Estilo musical</Label>
+              <Label>Duração (segundos)</Label>
               <select className="mt-1 flex h-10 w-full rounded-md border border-input bg-background/40 px-3 text-sm"
-                value={form.estilo} onChange={(e) => setForm({ ...form, estilo: e.target.value })}>
-                {ESTILOS.map((e) => <option key={e} value={e}>{e}</option>)}
+                value={form.duracao_seg} onChange={(e) => setForm({ ...form, duracao_seg: Number(e.target.value) })}>
+                {DURACOES_SUGERIDAS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
+              <div className="text-[10px] text-muted-foreground mt-1">Suno respeita aproximadamente</div>
             </div>
             <div>
               <Label>Título (opcional)</Label>
