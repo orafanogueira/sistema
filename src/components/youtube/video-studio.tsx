@@ -181,7 +181,7 @@ export function VideoStudio() {
               <Textarea className="mt-1 min-h-[180px]" placeholder="Cola aqui o roteiro gerado na aba anterior..."
                 value={vozForm.text} onChange={(e) => setVozForm({ ...vozForm, text: e.target.value })} />
               <div className="text-[10px] text-muted-foreground mt-1">
-                Max 5000 chars por request. {vozForm.text.length} chars. ~{Math.ceil(vozForm.text.length / 150)}s de audio estimado.
+                Max 80.000 chars. {vozForm.text.length.toLocaleString()} chars. ~{Math.ceil(vozForm.text.length / 150)}s de audio · {Math.ceil(vozForm.text.length / 4500)} chunks (pode levar alguns minutos pra textos grandes)
               </div>
             </div>
 
