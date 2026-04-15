@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
+import { CopilotFab } from "@/components/copilot/copilot-fab";
+import { Toaster } from "@/components/ui/toaster";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -22,6 +24,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <Topbar userName={userName} />
         <main className="p-6">{children}</main>
       </div>
+      <CopilotFab />
+      <Toaster />
     </div>
   );
 }

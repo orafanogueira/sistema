@@ -2,8 +2,10 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bot, Plus, Power } from "lucide-react";
+import { Bot } from "lucide-react";
 import Link from "next/link";
+import { NovoAgenteButton } from "@/components/atendimento-ia/novo-agente";
+import { AgenteActions } from "@/components/atendimento-ia/agente-actions";
 
 export default async function AIPage() {
   const supabase = await createClient();
@@ -11,6 +13,7 @@ export default async function AIPage() {
     .from("ai_agents")
     .select("id,name,persona,model,is_active,channels,cliente:clientes(nome)")
     .order("created_at", { ascending: false });
+  const { data: clientes } = await supabase.from("clientes").select("id,nome").order("nome");
 
   return (
     <div className="space-y-6">
@@ -19,7 +22,7 @@ export default async function AIPage() {
           <h1 className="text-3xl font-black tracking-tight">Atendimento IA</h1>
           <p className="text-muted-foreground">Agentes Claude que atendem Messenger, Instagram e WhatsApp.</p>
         </div>
-        <Button><Plus className="h-4 w-4" /> Novo agente</Button>
+        <NovoAgenteButton clientes={clientes || []} />
       </div>
 
       <div className="grid md:grid-cols-3 gap-4">
@@ -43,7 +46,7 @@ export default async function AIPage() {
             <Bot className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <div className="font-bold text-lg mb-1">Nenhum agente criado</div>
             <div className="text-sm text-muted-foreground mb-6">Crie um agente IA para atender automaticamente.</div>
-            <Button><Plus className="h-4 w-4" /> Criar primeiro agente</Button>
+            <NovoAgenteButton clientes={clientes || []} />
           </CardContent></Card>
         ) : (agents || []).map((a) => {
           const cliente = a.cliente as { nome?: string } | null;
@@ -66,7 +69,7 @@ export default async function AIPage() {
                 <div className="text-[11px] text-muted-foreground">Modelo: <span className="font-mono">{a.model}</span></div>
                 <div className="flex gap-2 pt-2">
                   <Link href={`/atendimento-ia/${a.id}`} className="flex-1"><Button variant="outline" size="sm" className="w-full">Editar</Button></Link>
-                  <Button variant="ghost" size="icon"><Power className="h-4 w-4" /></Button>
+                  <AgenteActions id={a.id} isActive={!!a.is_active} />
                 </div>
               </CardContent>
             </Card>

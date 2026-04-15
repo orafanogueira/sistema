@@ -1,9 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Zap, Plus, Power } from "lucide-react";
+import { Zap } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { NovaAutomacaoButton } from "@/components/automacoes/nova-automacao";
+import { AutomacaoActions } from "@/components/automacoes/automacao-actions";
 
 const TRIGGER_LABELS: Record<string, string> = {
   lead_created: "Lead novo capturado",
@@ -22,6 +23,7 @@ export default async function AutomacoesPage() {
     .from("automations")
     .select("*,cliente:clientes(nome),pipeline:pipelines(name)")
     .order("created_at", { ascending: false });
+  const { data: clientes } = await supabase.from("clientes").select("id,nome").order("nome");
 
   return (
     <div className="space-y-6">
@@ -30,7 +32,7 @@ export default async function AutomacoesPage() {
           <h1 className="text-3xl font-black tracking-tight">Automacoes</h1>
           <p className="text-muted-foreground">{(automations || []).length} regras automatizam tarefas, mensagens e movimentacoes.</p>
         </div>
-        <Button><Plus className="h-4 w-4" /> Nova automacao</Button>
+        <NovaAutomacaoButton clientes={clientes || []} />
       </div>
 
       <div className="grid md:grid-cols-3 gap-4">
@@ -44,7 +46,7 @@ export default async function AutomacoesPage() {
           <Zap className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <div className="font-bold text-lg mb-1">Nenhuma automacao</div>
           <div className="text-sm text-muted-foreground mb-6">Crie regras "quando X acontece, faca Y".</div>
-          <Button><Plus className="h-4 w-4" /> Primeira automacao</Button>
+          <NovaAutomacaoButton clientes={clientes || []} />
         </CardContent></Card>
       ) : (
         <div className="space-y-3">
@@ -66,10 +68,7 @@ export default async function AutomacoesPage() {
                         <div className="text-muted-foreground">Executou {a.run_count || 0}x · ultima: {formatDate(a.last_run_at)}</div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon"><Power className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="sm">Editar</Button>
-                    </div>
+                    <AutomacaoActions id={a.id} isActive={!!a.is_active} />
                   </div>
                 </CardContent>
               </Card>

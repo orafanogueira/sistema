@@ -1,7 +1,7 @@
 "use client";
-import { Search, Bell } from "lucide-react";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { NotificationsBell } from "./notifications-bell";
 
 export function Topbar({ userName }: { userName: string }) {
   const initials = userName.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
@@ -14,7 +14,7 @@ export function Topbar({ userName }: { userName: string }) {
         </div>
       </div>
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon"><Bell className="h-4 w-4" /></Button>
+        <NotificationsBell />
         <div className="flex items-center gap-3 pl-4 border-l border-border">
           <div className="text-right">
             <div className="text-sm font-semibold leading-tight">{userName}</div>

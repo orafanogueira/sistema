@@ -1,12 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { KanbanBoard } from "@/components/kanban/kanban-board";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { NovoBoardButton } from "@/components/kanban/novo-board";
+import { BoardSelector } from "@/components/kanban/board-selector";
 
 export default async function KanbanPage({ searchParams }: { searchParams: Promise<{ board?: string }> }) {
   const { board: boardId } = await searchParams;
   const supabase = await createClient();
   const { data: boards } = await supabase.from("boards").select("id,name,scope,team,cliente_id").order("created_at");
+  const { data: clientes } = await supabase.from("clientes").select("id,nome").order("nome");
 
   const currentBoardId = boardId || boards?.[0]?.id || null;
   let columns: Array<{ id: string; name: string; color: string; position: number }> = [];
@@ -29,18 +30,15 @@ export default async function KanbanPage({ searchParams }: { searchParams: Promi
           <p className="text-muted-foreground">Acompanhe o fluxo de trabalho dos times.</p>
         </div>
         <div className="flex items-center gap-2">
-          <select className="h-10 rounded-md border border-input bg-background/40 px-3 text-sm" defaultValue={currentBoardId || ""}>
-            <option value="">Selecione um board</option>
-            {(boards || []).map((b) => (<option key={b.id} value={b.id}>{b.name}</option>))}
-          </select>
-          <Button><Plus className="h-4 w-4" /> Novo board</Button>
+          <BoardSelector boards={boards || []} currentBoardId={currentBoardId} />
+          <NovoBoardButton clientes={clientes || []} />
         </div>
       </div>
 
       {!currentBoardId && (
         <div className="p-16 text-center bg-card border border-border rounded-xl">
           <div className="text-muted-foreground mb-4">Crie seu primeiro board para comecar.</div>
-          <Button><Plus className="h-4 w-4" /> Criar board</Button>
+          <NovoBoardButton clientes={clientes || []} />
         </div>
       )}
 

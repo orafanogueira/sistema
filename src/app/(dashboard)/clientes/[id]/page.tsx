@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatBRL, formatDate } from "@/lib/utils";
 import { ArrowLeft, Mail, MessageCircle, Building2, Calendar } from "lucide-react";
 import { ClienteDashboard } from "@/components/clientes/cliente-dashboard";
+import { AcoesCliente } from "@/components/clientes/acoes-cliente";
 
 export default async function ClientePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -68,8 +69,10 @@ export default async function ClientePage({ params }: { params: Promise<{ id: st
         <Card><CardHeader><CardTitle className="text-sm flex items-center gap-2"><Calendar className="h-4 w-4" /> Acoes rapidas</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             <Button variant="outline" size="sm" className="w-full justify-start"><MessageCircle className="h-4 w-4" /> Mandar WhatsApp</Button>
-            <Link href={`/clientes/${id}/relatorios`}><Button variant="outline" size="sm" className="w-full justify-start">Gerar relatorio</Button></Link>
             <Link href={`/integracoes?cliente=${id}`}><Button variant="outline" size="sm" className="w-full justify-start">Conectar integracoes</Button></Link>
+            <div className="pt-2 border-t border-border space-y-2">
+              <AcoesCliente clienteId={id} />
+            </div>
           </CardContent>
         </Card>
       </div>

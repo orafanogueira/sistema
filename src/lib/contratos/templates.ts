@@ -105,6 +105,84 @@ Data: {{data_inicio}}
   },
 
   {
+    key: "social_media_apenas",
+    name: "Prestacao de Servicos - Social Media",
+    vertical: "agencia",
+    categoria: "prestacao_servico",
+    variables: ["contratante_nome","contratante_cnpj","contratada_nome","contratada_cnpj","valor_mensal","prazo_meses","data_inicio","qtd_posts_mes","qtd_stories_mes","dia_vencimento"],
+    body: `CONTRATO DE PRESTACAO DE SERVICOS - SOCIAL MEDIA
+
+CONTRATADA: {{contratada_nome}}, CNPJ {{contratada_cnpj}}.
+CONTRATANTE: {{contratante_nome}}, CNPJ {{contratante_cnpj}}.
+
+CLAUSULA 1 - OBJETO
+Servicos de Social Media nas redes do CONTRATANTE:
+- {{qtd_posts_mes}} posts/reels/carrosseis por mes
+- {{qtd_stories_mes}} stories por mes
+- Planejamento editorial
+- Metricas mensais
+
+CLAUSULA 2 - PRAZO
+{{prazo_meses}} meses desde {{data_inicio}}.
+
+CLAUSULA 3 - VALOR
+R$ {{valor_mensal}}/mes, vencimento dia {{dia_vencimento}}.
+
+CLAUSULA 4 - APROVACAO
+Cliente aprova conteudo em ate 48h. Apos isso, aprovado automaticamente.
+
+CLAUSULA 5 - RESCISAO
+Aviso previo de 30 dias.
+
+Data: {{data_inicio}}
+`,
+  },
+
+  {
+    key: "trafego_pago_apenas",
+    name: "Prestacao de Servicos - Trafego Pago",
+    vertical: "agencia",
+    categoria: "prestacao_servico",
+    variables: ["contratante_nome","contratante_cnpj","contratada_nome","contratada_cnpj","honorario_mensal","verba_midia_mensal","plataformas","prazo_meses","data_inicio","dia_vencimento"],
+    body: `CONTRATO DE GESTAO DE TRAFEGO PAGO
+
+CONTRATADA: {{contratada_nome}}, CNPJ {{contratada_cnpj}}.
+CONTRATANTE: {{contratante_nome}}, CNPJ {{contratante_cnpj}}.
+
+CLAUSULA 1 - OBJETO
+Gestao de anuncios pagos em: {{plataformas}}.
+
+CLAUSULA 2 - VALORES
+Honorario: R$ {{honorario_mensal}}/mes.
+Verba midia: R$ {{verba_midia_mensal}}/mes (pago DIRETAMENTE pelo CONTRATANTE as plataformas).
+
+CLAUSULA 3 - PRAZO
+{{prazo_meses}} meses desde {{data_inicio}}.
+
+CLAUSULA 4 - OBRIGACOES DA CONTRATADA
+- Configurar e otimizar campanhas
+- Relatorio mensal de performance
+- Sugestoes de criativos
+
+CLAUSULA 5 - OBRIGACOES DO CONTRATANTE
+- Disponibilizar acessos de anuncio
+- Responder leads no tempo certo
+- Aprovar criativos em 48h
+
+CLAUSULA 6 - RESULTADO
+CONTRATADA nao garante CPL/CPA/ROAS especifico - performance depende de variaveis externas.
+
+CLAUSULA 7 - VENCIMENTO
+Dia {{dia_vencimento}} de cada mes.
+
+CLAUSULA 8 - RESCISAO
+Aviso previo 30 dias.
+
+Data: {{data_inicio}}
+`,
+  },
+
+  {
     key: "comercial_generico",
     name: "Prestacao de Servicos (generico)",
     vertical: "comercial",

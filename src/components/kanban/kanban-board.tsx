@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plus, GripVertical, Calendar, Tag } from "lucide-react";
 import { cn, formatDate } from "@/lib/utils";
+import { NovaTaskButton } from "@/components/kanban/nova-task";
 
 interface Column { id: string; name: string; color: string; position: number; }
 interface Task { id: string; title: string; description: string | null; column_id: string | null; priority: string; due_date: string | null; position: number; tags: string[]; }
@@ -68,7 +69,7 @@ export function KanbanBoard({ boardId, initialColumns, initialTasks }: { boardId
                   <div className="font-bold text-sm">{col.name}</div>
                   <Badge variant="secondary" className="text-[10px]">{colTasks.length}</Badge>
                 </div>
-                <Button size="icon" variant="ghost" className="h-7 w-7"><Plus className="h-3.5 w-3.5" /></Button>
+                <NovaTaskButton boardId={boardId} columnId={col.id} />
               </div>
               <SortableContext items={colTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
                 <div className="p-2 space-y-2 min-h-[200px]">

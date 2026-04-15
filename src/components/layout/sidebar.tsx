@@ -5,7 +5,8 @@ import {
   LayoutDashboard, Users, KanbanSquare, Megaphone, Handshake, Palette,
   Video, MessagesSquare, Mail, Bot, Plug, Settings, Building2,
   Target, Car, Zap, Workflow, Sparkles, Calendar, Image, Bell,
-  Activity, Link2, FileText, DollarSign, Receipt,
+  Activity, Link2, FileText, DollarSign, Receipt, Instagram,
+  MessageSquare, Search, Share2, Heart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +19,7 @@ const NAV = [
   { section: "Conteudo", items: [
     { href: "/social", label: "Social Media", icon: Image },
     { href: "/calendario", label: "Calendario", icon: Calendar },
+    { href: "/automacoes-ig", label: "Automacoes IG", icon: Instagram },
   ]},
   { section: "CRM", items: [
     { href: "/leads", label: "Leads", icon: Target },
@@ -38,8 +40,16 @@ const NAV = [
     { href: "/cobrancas", label: "Cobrancas", icon: Receipt },
   ]},
   { section: "IA", items: [
+    { href: "/copiloto", label: "Copiloto IA", icon: MessageSquare },
     { href: "/agentes-ia", label: "Agentes IA", icon: Sparkles },
     { href: "/atendimento-ia", label: "Atendimento IA", icon: Bot },
+    { href: "/criativos", label: "Criativos IA", icon: Image },
+  ]},
+  { section: "Performance", items: [
+    { href: "/utm-builder", label: "UTM Builder", icon: Link2 },
+    { href: "/seo", label: "SEO / Organico", icon: Search },
+    { href: "/customer-success", label: "Customer Success", icon: Heart },
+    { href: "/maxxima", label: "Maquina Maxxima", icon: Zap },
   ]},
   { section: "Times", items: [
     { href: "/times/trafego", label: "Trafego Pago", icon: Megaphone },
