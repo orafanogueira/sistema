@@ -301,10 +301,24 @@ export function VideoStudio() {
 
   const montarVideo = async () => {
     if (videosAnimados.length === 0) return toast.error("Anime as imagens primeiro (passo 4)");
-    const audioSrc = audioLimpoUrl || audioUrl;
     setMontarLoading(true);
-    setMontarStatus("Enviando pro Shotstack...");
+    setMontarStatus("Preparando audio...");
     setVideoFinalUrl(null);
+
+    // Se o audio limpo e blob local, sobe pro Storage
+    let audioSrc: string | null = audioUrl;
+    if (audioLimpoBlob) {
+      try {
+        const fd = new FormData();
+        fd.append("file", audioLimpoBlob, "audio-sem-pausas.wav");
+        const up = await fetch("/api/social/upload", { method: "POST", body: fd });
+        if (up.ok) {
+          const upData = await up.json();
+          audioSrc = upData.url;
+        }
+      } catch {}
+    }
+    setMontarStatus("Enviando pro Shotstack...");
     try {
       // mede duracao do audio pra sincronizar
       let audioDuration = 0;
