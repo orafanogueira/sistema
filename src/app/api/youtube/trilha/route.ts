@@ -56,14 +56,28 @@ export async function POST(req: Request) {
     ? { custom_mode: true, prompt: letra || promptSuno, title: titulo || "Untitled", tags, make_instrumental: instrumental ?? false }
     : { custom_mode: false, gpt_description_prompt: promptSuno, make_instrumental: instrumental ?? true };
 
-  const createRes = await fetch("https://api.sunoapi.com/api/v1/suno/create", {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!createRes.ok) {
+  // tenta 2 endpoints (antigo + novo)
+  const endpoints = [
+    "https://api.sunoapi.com/api/v1/suno/create",
+    "https://api.sunoapi.com/api/v1/suno/generate",
+  ];
+  let createRes: Response | null = null;
+  let lastError = "";
+
+  for (const endpoint of endpoints) {
+    createRes = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (createRes.ok) break;
     const txt = await createRes.text();
-    return new NextResponse(`SunoAPI create ${createRes.status}: ${txt.slice(0, 300)}`, { status: 500 });
+    lastError = `${endpoint} -> ${createRes.status}: ${txt.slice(0, 200)}`;
+    createRes = null;
+  }
+
+  if (!createRes || !createRes.ok) {
+    return new NextResponse(`SunoAPI falhou todos endpoints. PAYLOAD enviado: ${JSON.stringify(body).slice(0, 200)} | ERRO: ${lastError}`, { status: 500 });
   }
   const created = await createRes.json();
   const data = created.data ?? created;
