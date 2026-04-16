@@ -130,7 +130,7 @@ Style requirements:
 - Photorealistic cinematic look
 - High contrast, saturated colors that pop on YouTube
 - Clear focal point, rule-of-thirds composition
-- Convey strong emotion (curiosity, shock, intrigue)
+- MUST include a person (young adult, facing camera) with exaggerated facial expression showing shock/surprise/excitement — mouth open, wide eyes, eyebrows raised. The person should occupy 40-50% of the frame on one side.
 - Professional YouTube thumbnail aesthetic (MrBeast, Casimiro, Dotti style)
 - 1280x720 quality, optimized for YouTube grid`;
 
