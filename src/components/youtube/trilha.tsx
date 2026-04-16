@@ -43,6 +43,7 @@ export function Trilha() {
   const [result, setResult] = useState<{
     url: string; url_variacao_2?: string; prompt_suno: string; duracao?: number;
   } | null>(null);
+  const [resultDebug, setResultDebug] = useState("");
   const [historico, setHistorico] = useState<TrilhaHist[]>([]);
   const [copied, setCopied] = useState(false);
 
@@ -88,6 +89,7 @@ export function Trilha() {
     if (!form.descricao.trim()) return toast.error("Descreva o estilo/mood");
     setLoading(true);
     setResult(null);
+    setResultDebug("");
     try {
       const descCompleta = `${form.descricao}, duration approximately ${form.duracao_seg} seconds`;
       const r = await fetch("/api/youtube/trilha", {
@@ -96,9 +98,14 @@ export function Trilha() {
       });
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
+      setResultDebug(`API OK: url=${data.url ? "SIM (" + data.url.slice(0, 60) + "...)" : "VAZIO"} | duracao=${data.duracao || "?"} | url_v2=${data.url_variacao_2 ? "SIM" : "NAO"}`);
       setResult(data);
-      toast.success("Música gerada", `${data.duracao ? Math.round(data.duracao) + "s" : "pronta"}`);
+      toast.success("Música gerada! Role pra baixo pra ver.", `${data.duracao ? Math.round(data.duracao) + "s" : "pronta"}`);
       loadHistorico();
+      // auto-scroll pro resultado
+      setTimeout(() => {
+        document.getElementById("trilha-resultado")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 300);
     } catch (e: unknown) {
       toast.error("Erro", e instanceof Error ? e.message : "tente novamente");
     } finally { setLoading(false); }
@@ -207,8 +214,14 @@ export function Trilha() {
         </CardContent>
       </Card>
 
+      {resultDebug && (
+        <div className="p-2 bg-background/40 border border-border rounded text-[10px] font-mono text-muted-foreground">
+          DEBUG: {resultDebug}
+        </div>
+      )}
+
       {result && (
-        <Card>
+        <Card id="trilha-resultado" className="border-green-500/30 bg-green-500/5">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm">Música gerada {result.duracao && <Badge variant="secondary" className="ml-2">{Math.round(result.duracao)}s</Badge>}</CardTitle>
