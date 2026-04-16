@@ -53,7 +53,8 @@ export async function POST(req: Request) {
   const tags = (promptSuno || descricao).slice(0, 180);
 
   // AIMusicAPI format: mv obrigatorio, custom_mode define o que enviar
-  const model = "sonic-v5";   // melhor qualidade
+  // usa sonic-v4-5 que e o exemplo oficial da doc (sonic-v5 pode nao estar disponivel em todos os planos)
+  const model = "sonic-v4-5";
   const body: Record<string, unknown> = custom
     ? {
         custom_mode: true,
@@ -61,7 +62,6 @@ export async function POST(req: Request) {
         title: titulo || "Untitled",
         tags,
         prompt: letra || promptSuno,
-        make_instrumental: instrumental ?? false,
       }
     : {
         custom_mode: false,
@@ -69,7 +69,6 @@ export async function POST(req: Request) {
         title: titulo || "Trilha",
         tags,
         gpt_description_prompt: promptSuno,
-        make_instrumental: instrumental ?? true,
       };
 
   // AIMusicAPI endpoint oficial
@@ -84,7 +83,7 @@ export async function POST(req: Request) {
 
   if (!createRes.ok) {
     const txt = await createRes.text();
-    return new NextResponse(`AIMusicAPI create ${createRes.status}: ${txt.slice(0, 400)}`, { status: 500 });
+    return new NextResponse(`AIMusicAPI ${createRes.status}: ${txt.slice(0, 300)} | BODY enviado: ${JSON.stringify(body).slice(0, 300)}`, { status: 500 });
   }
   const created = await createRes.json();
   const taskId: string = created.task_id || created.data?.task_id || "";
