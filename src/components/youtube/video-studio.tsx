@@ -598,7 +598,7 @@ export function VideoStudio() {
                         className="h-8 text-xs"
                         value={animForm.prompt_movimento}
                         onChange={(e) => setAnimForm({ ...animForm, prompt_movimento: e.target.value })} />
-                      <Button onClick={animar} disabled={animLoading} className="w-full">
+                      <Button onClick={() => animar()} disabled={animLoading} className="w-full">
                         {animLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Animando (pode levar 2-5min)...</> : <><Play className="h-4 w-4" /> Animar {selecionadas.size}</>}
                       </Button>
                     </div>
