@@ -150,52 +150,88 @@ Style requirements:
 - Professional YouTube thumbnail aesthetic (MrBeast, Casimiro, Dotti style)
 - 1280x720 quality, optimized for YouTube grid`;
 
-  // 3. Gera thumb via fal.ai — Ideogram v2 (melhor pra texto) ou Flux
-  let buffer: Buffer;
-  let mime: string;
+  // 3. Gera thumb — tenta Gemini Nano Banana Pro primeiro (melhor com texto PT-BR)
+  //    fallback: Ideogram (fal.ai) se Gemini falhar
+  let buffer: Buffer = Buffer.alloc(0);
+  let mime = "image/png";
+  const geminiKey = process.env.GEMINI_API_KEY;
   const falKey = process.env.FAL_KEY;
-  if (!falKey) return new NextResponse("FAL_KEY ausente no Vercel", { status: 500 });
 
-  try {
-    // Ideogram v2 pra thumbs com texto, Flux Pro pra thumbs sem texto
-    const endpoint = hasText ? "fal-ai/ideogram/v2" : "fal-ai/flux-pro/v1.1";
+  let erro = "";
+  let gotImage = false;
 
-    const falBody: Record<string, unknown> = {
-      prompt: promptFinal,
-      image_size: "landscape_16_9",
-      num_images: 1,
-    };
-
-    // Ideogram-specific configs
-    if (hasText) {
-      falBody.style = "realistic";
-      falBody.magic_prompt = false;  // desliga pra nao reescrever o prompt (preserva texto exato)
-      falBody.expand_prompt = false;
-    } else {
-      falBody.num_inference_steps = 28;
-      falBody.enable_safety_checker = false;
+  // Tentativa 1: Gemini Nano Banana Pro (suporta texto em varias linguas)
+  if (geminiKey) {
+    const geminiModels = ["nano-banana-pro-preview", "gemini-3-pro-image-preview", "gemini-2.5-flash-image"];
+    for (const model of geminiModels) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
+        const r = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: promptFinal + "\n\nASPECT RATIO: horizontal 16:9 widescreen." }] }],
+            generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+          }),
+        });
+        if (!r.ok) { erro = `${model} ${r.status}`; continue; }
+        const data = await r.json();
+        type Part = { inlineData?: { data?: string; mimeType?: string } };
+        const parts = (data.candidates?.[0]?.content?.parts as Part[] | undefined) || [];
+        const imgPart = parts.find((p) => p.inlineData?.data);
+        if (!imgPart?.inlineData?.data) { erro = `${model} sem imagem`; continue; }
+        buffer = Buffer.from(imgPart.inlineData.data, "base64");
+        mime = imgPart.inlineData.mimeType || "image/png";
+        gotImage = true;
+        break;
+      } catch (e: unknown) {
+        erro = `${model}: ${e instanceof Error ? e.message.slice(0, 80) : "?"}`;
+      }
     }
+  }
 
-    // Imagem de referencia (style reference)
-    if (referencia_url) {
-      falBody.image_url = referencia_url;
-      falBody.strength = 0.35;
+  // Tentativa 2 (fallback): Ideogram via fal.ai
+  if (!gotImage) {
+    if (!falKey) {
+      return new NextResponse(`Gemini falhou e FAL_KEY ausente. Ultimo erro Gemini: ${erro}`, { status: 500 });
     }
+    try {
+      const falBody: Record<string, unknown> = {
+        prompt: promptFinal,
+        image_size: "landscape_16_9",
+        num_images: 1,
+      };
+      if (hasText) {
+        falBody.style = "realistic";
+        falBody.magic_prompt = false;
+        falBody.expand_prompt = false;
+      } else {
+        falBody.num_inference_steps = 28;
+        falBody.enable_safety_checker = false;
+      }
+      if (referencia_url) { falBody.image_url = referencia_url; falBody.strength = 0.35; }
 
-    const falRes = await fetch(`https://fal.run/${endpoint}`, {
-      method: "POST",
-      headers: { "Authorization": `Key ${falKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify(falBody),
-    });
-    if (!falRes.ok) throw new Error(`fal ${falRes.status}: ${(await falRes.text()).slice(0, 250)}`);
-    const falData = await falRes.json();
-    const imgUrl = falData.images?.[0]?.url;
-    if (!imgUrl) throw new Error("fal sem url na resposta");
-    const imgRes = await fetch(imgUrl);
-    buffer = Buffer.from(await imgRes.arrayBuffer());
-    mime = imgRes.headers.get("content-type") || "image/png";
-  } catch (e: unknown) {
-    return new NextResponse(`Thumb: ${e instanceof Error ? e.message : "erro"}`, { status: 500 });
+      const endpoint = hasText ? "fal-ai/ideogram/v2" : "fal-ai/flux-pro/v1.1";
+      const falRes = await fetch(`https://fal.run/${endpoint}`, {
+        method: "POST",
+        headers: { "Authorization": `Key ${falKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify(falBody),
+      });
+      if (!falRes.ok) throw new Error(`fal ${falRes.status}: ${(await falRes.text()).slice(0, 250)}`);
+      const falData = await falRes.json();
+      const imgUrl = falData.images?.[0]?.url;
+      if (!imgUrl) throw new Error("fal sem url");
+      const imgRes = await fetch(imgUrl);
+      buffer = Buffer.from(await imgRes.arrayBuffer());
+      mime = imgRes.headers.get("content-type") || "image/png";
+      gotImage = true;
+    } catch (e: unknown) {
+      return new NextResponse(`Gemini + fal falharam. Gemini: ${erro}. fal: ${e instanceof Error ? e.message : "?"}`, { status: 500 });
+    }
+  }
+
+  if (!gotImage) {
+    return new NextResponse(`Nenhum gerador funcionou. ${erro}`, { status: 500 });
   }
 
   const ext = mime.split("/")[1] || "png";
