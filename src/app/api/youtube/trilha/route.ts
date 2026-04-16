@@ -53,8 +53,8 @@ export async function POST(req: Request) {
   const tags = (promptSuno || descricao).slice(0, 180);
 
   const body: Record<string, unknown> = custom
-    ? { custom_mode: true, prompt: letra || promptSuno, title: titulo || "Untitled", tags, make_instrumental: instrumental ?? false, mv: "chirp-v3-5" }
-    : { custom_mode: false, gpt_description_prompt: promptSuno, make_instrumental: instrumental ?? true, mv: "chirp-v3-5" };
+    ? { custom_mode: true, prompt: letra || promptSuno, title: titulo || "Untitled", tags, make_instrumental: instrumental ?? false }
+    : { custom_mode: false, gpt_description_prompt: promptSuno, make_instrumental: instrumental ?? true };
 
   const createRes = await fetch("https://api.sunoapi.com/api/v1/suno/create", {
     method: "POST",
