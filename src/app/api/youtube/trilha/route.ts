@@ -56,20 +56,16 @@ export async function POST(req: Request) {
     ? { custom_mode: true, prompt: letra || promptSuno, title: titulo || "Untitled", tags, make_instrumental: instrumental ?? false }
     : { custom_mode: false, gpt_description_prompt: promptSuno, make_instrumental: instrumental ?? true };
 
-  // testa varias combinacoes de endpoint + auth + payload
+  // aimusicapi.ai — testa padroes comuns (nao tem docs visiveis ainda)
   const tentativas: Array<{ url: string; auth: string; payload: Record<string, unknown> }> = [
-    // tentativa 1: SunoAPI.com v1 classico (Bearer)
-    { url: "https://api.sunoapi.com/api/v1/suno/create", auth: `Bearer ${key}`, payload: body },
-    // tentativa 2: api-key header
-    { url: "https://api.sunoapi.com/api/v1/suno/create", auth: "_apikey_", payload: body },
-    // tentativa 3: endpoint studio
-    { url: "https://api.sunoapi.com/api/v1/generate", auth: `Bearer ${key}`, payload: body },
-    // tentativa 4: payload minimo
-    { url: "https://api.sunoapi.com/api/v1/suno/create", auth: `Bearer ${key}`,
+    { url: "https://aimusicapi.ai/api/v1/suno/create", auth: `Bearer ${key}`, payload: body },
+    { url: "https://aimusicapi.ai/api/v1/generate", auth: `Bearer ${key}`, payload: body },
+    { url: "https://api.aimusicapi.ai/v1/suno/create", auth: `Bearer ${key}`, payload: body },
+    { url: "https://api.aimusicapi.ai/v1/generate", auth: `Bearer ${key}`, payload: body },
+    { url: "https://aimusicapi.ai/api/v1/suno/create", auth: "_apikey_", payload: body },
+    { url: "https://aimusicapi.ai/api/v1/generate", auth: "_apikey_", payload: body },
+    { url: "https://aimusicapi.ai/api/v1/suno/create", auth: `Bearer ${key}`,
       payload: { prompt: promptSuno, make_instrumental: true } },
-    // tentativa 5: endpoint studio + minimo
-    { url: "https://api.sunoapi.com/api/v1/generate", auth: `Bearer ${key}`,
-      payload: { prompt: promptSuno } },
   ];
 
   let createRes: Response | null = null;
