@@ -11,7 +11,7 @@ import {
 import { toast } from "@/components/ui/toaster";
 import { removePausesFromAudio } from "@/lib/youtube/remove-pauses";
 
-interface Voice { voice_id: string; name: string; descricao?: string; labels?: Record<string, string>; preview_url?: string }
+interface Voice { voice_id: string; name: string; descricao?: string; labels?: Record<string, string>; preview_url?: string; category?: string }
 interface VideoImg { id: string; url: string; ordem: number; prompt: string }
 interface ThumbRes { url: string; padroes_detectados: Record<string, unknown>; thumbs_analisadas: number }
 interface Canal { id: string; channel_name: string }

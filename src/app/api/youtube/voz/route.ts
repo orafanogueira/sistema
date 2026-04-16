@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { listVoices, textToSpeech, VOZES_RECOMENDADAS_PT } from "@/lib/youtube/elevenlabs";
+import { listVoices, textToSpeech, VOZES_RECOMENDADAS_PT, getUserInfo } from "@/lib/youtube/elevenlabs";
 
 export const maxDuration = 300;   // ate 5min pra textos longos com chunking
 

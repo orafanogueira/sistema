@@ -27,6 +27,18 @@ export async function listVoices(): Promise<Voice[]> {
   return data.voices || [];
 }
 
+/** Retorna info do usuario ElevenLabs (creditos restantes, limite). */
+export async function getUserInfo(): Promise<{ character_count: number; character_limit: number; remaining: number } | null> {
+  try {
+    const r = await fetch(`${BASE}/user/subscription`, { headers: { "xi-api-key": apiKey() } });
+    if (!r.ok) return null;
+    const data = await r.json();
+    const used = data.character_count || 0;
+    const limit = data.character_limit || 0;
+    return { character_count: used, character_limit: limit, remaining: Math.max(0, limit - used) };
+  } catch { return null; }
+}
+
 /** TTS: gera audio MP3 de um texto. Retorna buffer. */
 export async function textToSpeech(opts: {
   text: string;
