@@ -4,18 +4,18 @@ import { aiChat } from "@/lib/integrations/ai";
 
 export const maxDuration = 60;
 
-const PROMPT_OTIMIZADOR = `Voce e especialista em prompts de Suno AI (geracao de musica). Converte o pedido do usuario em um prompt OTIMIZADO em ingles seguindo o estilo Suno.
+const PROMPT_OTIMIZADOR = `Voce e especialista em prompts AIMusicAPI/Suno. Converte pedido do usuario em JSON com description + tags.
 
 REGRAS:
-- EM INGLES, sempre
-- Mencionar: genero, mood, instrumentos, tempo/BPM, estrutura
-- Ser especifico (nao "happy music" mas "uplifting pop, 128 BPM, acoustic guitar + soft piano + gentle vocals")
-- Adicionar tags de qualidade: "high quality, studio recording"
-- MAXIMO 380 caracteres (limite do Suno)
-- Se for instrumental, mencionar "instrumental" no inicio
-- Se for pra video dark/YouTube, pensar em tracks cinematicas
+- description (gpt_description_prompt): 300 chars max, em INGLES, descricao completa com instrumentos, mood, BPM
+- tags: 100 chars max, em INGLES, SO palavras-chave curtas de genero/mood separadas por virgula (ex: "dark cinematic, piano, ambient, tense")
+- Se instrumental, incluir "instrumental" nas tags
 
-Output: APENAS o prompt final, sem explicacao, sem aspas.`;
+Output: JSON estrito sem markdown:
+{
+  "description": "...",
+  "tags": "genre1, mood1, instrument1, ..."
+}`;
 
 /**
  * POST: cria task no SunoAPI e retorna ID imediatamente (frontend faz polling em /status).
@@ -31,26 +31,35 @@ export async function POST(req: Request) {
   const { descricao, tipo, instrumental, titulo, letra } = await req.json();
   if (!descricao?.trim()) return new NextResponse("descricao obrigatoria", { status: 400 });
 
-  // 1. Claude otimiza o prompt
+  // 1. Claude otimiza e retorna JSON com description + tags
   let promptSuno = "";
+  let tagsAi = "";
   try {
-    promptSuno = await aiChat({
+    const raw = await aiChat({
       systemPrompt: PROMPT_OTIMIZADOR,
       messages: [{ role: "user", content: `Pedido: ${descricao}\nTipo: ${tipo || "background"}\nInstrumental: ${instrumental ? "sim" : "nao"}` }],
       temperature: 0.7,
-      maxTokens: 400,
+      maxTokens: 500,
     });
-    promptSuno = promptSuno.trim().replace(/^["']|["']$/g, "").slice(0, 380);
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      promptSuno = (parsed.description || "").slice(0, 300);
+      tagsAi = (parsed.tags || "").slice(0, 100);
+    } else {
+      promptSuno = raw.slice(0, 300);
+    }
   } catch {
-    promptSuno = descricao.slice(0, 380);
+    promptSuno = descricao.slice(0, 300);
   }
+  if (!tagsAi) tagsAi = (instrumental ? "instrumental, " : "") + "cinematic, ambient";
 
   // 2. Cria task no SunoAPI (NAO espera completar)
   const key = process.env.SUNOAPI_KEY || process.env.SUNO_API_KEY;
   if (!key) return new NextResponse("SUNOAPI_KEY ausente", { status: 500 });
 
   const custom = !!(letra);
-  const tags = (promptSuno || descricao).slice(0, 180);
+  const tags = tagsAi;   // tags curtas de genero/mood geradas pela IA
 
   // AIMusicAPI format: mv obrigatorio, custom_mode define o que enviar
   // usa sonic-v4-5 que e o exemplo oficial da doc (sonic-v5 pode nao estar disponivel em todos os planos)
