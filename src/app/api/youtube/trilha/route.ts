@@ -98,7 +98,7 @@ export async function POST(req: Request) {
   // mapa: Claude prompt_suno -> DB
 
   // 3. Salva no DB com url="pending" (status endpoint vai completar depois)
-  const { data: row } = await supabase.from("youtube_trilhas").insert({
+  const { data: row, error: dbErr } = await supabase.from("youtube_trilhas").insert({
     tenant_id: m.tenant_id,
     tipo: tipo || "background",
     prompt_descricao: descricao,
@@ -111,6 +111,10 @@ export async function POST(req: Request) {
     task_id: taskId,
     created_by: user.id,
   }).select().single();
+
+  if (dbErr || !row) {
+    return new NextResponse(`DB insert falhou: ${dbErr?.message || "sem erro"} | task_id=${taskId} ja criado no Suno mas sem registro local`, { status: 500 });
+  }
 
   // Retorna IMEDIATAMENTE — frontend faz polling em /status?id=xxx
   return NextResponse.json({
