@@ -122,17 +122,17 @@ export function VideoStudio() {
   useEffect(() => {
     fetch("/api/youtube/voz").then((r) => r.json()).then((d) => {
       const apiVoices = (d.voices || []) as Voice[];
-      // Free tier: so vozes premade funcionam (evita 402 payment_required)
-      const premade = apiVoices.filter((v) => v.category === "premade" || v.category === "cloned");
-      const curadasBase = (d.curadas || []) as Voice[];
-      const curadas = curadasBase
-        .map((c) => {
-          const apiV = premade.find((v) => v.voice_id === c.voice_id);
-          return apiV ? { ...c, preview_url: apiV.preview_url, category: apiV.category } : null;
-        })
-        .filter(Boolean) as Voice[];
-      const outras = premade.filter((v) => !curadas.find((c) => c.voice_id === v.voice_id));
-      const all = [...curadas, ...outras];
+      // mostra TODAS as vozes (user tem plano pago, library funciona)
+      // prioriza Portuguese/Brazilian no topo
+      const isPt = (v: Voice) => {
+        const lang = (v.labels?.language || "").toLowerCase();
+        const accent = (v.labels?.accent || "").toLowerCase();
+        const desc = (v.labels?.description || "").toLowerCase();
+        return lang.includes("portug") || accent.includes("brazil") || accent.includes("portug") || desc.includes("brazil") || desc.includes("portug");
+      };
+      const ptVoices = apiVoices.filter(isPt);
+      const outras = apiVoices.filter((v) => !isPt(v));
+      const all = [...ptVoices, ...outras];
       setVoices(all);
       if (all.length > 0 && !vozForm.voice_id) setVozForm((f) => ({ ...f, voice_id: all[0].voice_id }));
     }).catch(() => {});
@@ -457,16 +457,15 @@ export function VideoStudio() {
               <div className="flex gap-2 mt-1">
                 <select className="flex-1 flex h-10 rounded-md border border-input bg-background/40 px-3 text-sm"
                   value={vozForm.voice_id} onChange={(e) => setVozForm({ ...vozForm, voice_id: e.target.value })}>
-                  <optgroup label="Curadas pra canal dark">
-                    {voices.slice(0, 6).map((v) => (
-                      <option key={v.voice_id} value={v.voice_id}>{v.name}{v.descricao ? ` — ${v.descricao}` : ""}</option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Todas as vozes">
-                    {voices.slice(6).map((v) => (
-                      <option key={v.voice_id} value={v.voice_id}>{v.name}</option>
-                    ))}
-                  </optgroup>
+                  {voices.map((v) => {
+                    const labels = v.labels || {};
+                    const tag = [labels.language, labels.accent, labels.gender, labels.use_case].filter(Boolean).join(" · ").slice(0, 50);
+                    return (
+                      <option key={v.voice_id} value={v.voice_id}>
+                        {v.name} {tag ? `— ${tag}` : ""}
+                      </option>
+                    );
+                  })}
                 </select>
                 <Button variant="outline" size="icon" onClick={tocarPreview}
                   disabled={!vozSelecionada?.preview_url || previewPlaying === vozSelecionada?.voice_id}
