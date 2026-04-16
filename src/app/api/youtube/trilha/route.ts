@@ -52,57 +52,44 @@ export async function POST(req: Request) {
   const custom = !!(letra);
   const tags = (promptSuno || descricao).slice(0, 180);
 
+  // AIMusicAPI format: mv obrigatorio, custom_mode define o que enviar
+  const model = "sonic-v5";   // melhor qualidade
   const body: Record<string, unknown> = custom
-    ? { custom_mode: true, prompt: letra || promptSuno, title: titulo || "Untitled", tags, make_instrumental: instrumental ?? false }
-    : { custom_mode: false, gpt_description_prompt: promptSuno, make_instrumental: instrumental ?? true };
+    ? {
+        custom_mode: true,
+        mv: model,
+        title: titulo || "Untitled",
+        tags,
+        prompt: letra || promptSuno,
+        make_instrumental: instrumental ?? false,
+      }
+    : {
+        custom_mode: false,
+        mv: model,
+        title: titulo || "Trilha",
+        tags,
+        gpt_description_prompt: promptSuno,
+        make_instrumental: instrumental ?? true,
+      };
 
-  // aimusicapi.ai — testa padroes comuns (nao tem docs visiveis ainda)
-  const tentativas: Array<{ url: string; auth: string; payload: Record<string, unknown> }> = [
-    { url: "https://aimusicapi.ai/api/v1/suno/create", auth: `Bearer ${key}`, payload: body },
-    { url: "https://aimusicapi.ai/api/v1/generate", auth: `Bearer ${key}`, payload: body },
-    { url: "https://api.aimusicapi.ai/v1/suno/create", auth: `Bearer ${key}`, payload: body },
-    { url: "https://api.aimusicapi.ai/v1/generate", auth: `Bearer ${key}`, payload: body },
-    { url: "https://aimusicapi.ai/api/v1/suno/create", auth: "_apikey_", payload: body },
-    { url: "https://aimusicapi.ai/api/v1/generate", auth: "_apikey_", payload: body },
-    { url: "https://aimusicapi.ai/api/v1/suno/create", auth: `Bearer ${key}`,
-      payload: { prompt: promptSuno, make_instrumental: true } },
-  ];
+  // AIMusicAPI endpoint oficial
+  const createRes = await fetch("https://api.aimusicapi.ai/api/v1/sonic/create", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
 
-  let createRes: Response | null = null;
-  const erros: string[] = [];
-
-  for (const t of tentativas) {
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (t.auth === "_apikey_") headers["api-key"] = key;
-    else headers["Authorization"] = t.auth;
-
-    const r = await fetch(t.url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(t.payload),
-    });
-    if (r.ok) {
-      createRes = r;
-      break;
-    }
-    const txt = await r.text();
-    erros.push(`${t.url.split("/").pop()} [${t.auth === "_apikey_" ? "apikey" : "bearer"}] -> ${r.status}: ${txt.slice(0, 100)}`);
-  }
-
-  if (!createRes) {
-    return new NextResponse(`SunoAPI todas tentativas falharam: ${erros.join(" || ")}`, { status: 500 });
+  if (!createRes.ok) {
+    const txt = await createRes.text();
+    return new NextResponse(`AIMusicAPI create ${createRes.status}: ${txt.slice(0, 400)}`, { status: 500 });
   }
   const created = await createRes.json();
-  const data = created.data ?? created;
-  type ClipShape = { id?: string };
-  const taskId: string =
-    data.task_id || data.taskId || created.task_id ||
-    (Array.isArray(data.clips) ? data.clips.map((c: ClipShape) => c.id).filter(Boolean).join(",") : "") ||
-    (Array.isArray(data.clip_ids) ? data.clip_ids.join(",") : "") ||
-    data.id || "";
-
+  const taskId: string = created.task_id || created.data?.task_id || "";
   if (!taskId) {
-    return new NextResponse(`SunoAPI sem task_id. Raw: ${JSON.stringify(created).slice(0, 400)}`, { status: 500 });
+    return new NextResponse(`AIMusicAPI sem task_id. Raw: ${JSON.stringify(created).slice(0, 400)}`, { status: 500 });
   }
 
   // 3. Salva no DB com url="pending" (status endpoint vai completar depois)
@@ -147,32 +134,37 @@ export async function GET(req: Request) {
     const key = process.env.SUNOAPI_KEY || process.env.SUNO_API_KEY;
     if (!key) return NextResponse.json({ status: "error", message: "SUNOAPI_KEY ausente" });
 
-    const clipIds = trilha.task_id.split(",").filter(Boolean);
-    const pollUrl = clipIds.length > 0
-      ? `https://api.sunoapi.com/api/v1/suno/clips?ids=${clipIds.join(",")}`
-      : `https://api.sunoapi.com/api/v1/suno/task/${trilha.task_id}`;
+    const pollUrl = `https://api.aimusicapi.ai/api/v1/sonic/task/${trilha.task_id}`;
 
     try {
       const r = await fetch(pollUrl, { headers: { "Authorization": `Bearer ${key}` } });
-      if (!r.ok) return NextResponse.json({ status: "polling", message: `suno HTTP ${r.status}` });
+      if (!r.ok) return NextResponse.json({ status: "polling", message: `aimusicapi HTTP ${r.status}` });
       const statusData = await r.json();
       const rawPreview = JSON.stringify(statusData).slice(0, 400);
-      const payload = statusData.data || statusData;
+      // AIMusicAPI formato: { code, message, task_id, data: { state, clips: [{audio_url, title, duration}] } }
+      const taskData = statusData.data || statusData;
+      const state = taskData.state || taskData.status;
 
-      type Clip = { status?: string; audio_url?: string; title?: string; duration?: number };
-      let clips: Clip[] = Array.isArray(payload) ? payload
-        : Array.isArray(payload.clips) ? payload.clips
-        : payload.audio_url ? [payload as Clip]
+      if (state === "pending" || state === "running") {
+        return NextResponse.json({ status: "polling", message: `state=${state}` });
+      }
+      if (state === "failed") {
+        return NextResponse.json({ status: "error", message: `falhou: ${taskData.error || JSON.stringify(taskData).slice(0, 200)}` });
+      }
+      if (state !== "succeeded" && state !== "complete") {
+        return NextResponse.json({ status: "polling", message: `raw: ${rawPreview}` });
+      }
+
+      // sucesso — extrai clips
+      type Clip = { audio_url?: string; title?: string; duration?: number; id?: string };
+      const clips: Clip[] = Array.isArray(taskData.clips) ? taskData.clips
+        : Array.isArray(taskData.data) ? taskData.data
+        : taskData.audio_url ? [taskData as Clip]
         : [];
-      if (clips.length === 0 && payload.status && payload.audio_url) clips = [payload as Clip];
 
-      if (clips.length === 0) return NextResponse.json({ status: "polling", message: `raw: ${rawPreview}` });
-
-      const completos = clips.filter((c) => (c.status === "complete" || c.status === "streaming") && c.audio_url);
+      const completos = clips.filter((c) => c.audio_url);
       if (completos.length === 0) {
-        const failed = clips.find((c) => c.status === "error" || c.status === "failed");
-        if (failed) return NextResponse.json({ status: "error", message: "Suno falhou na geracao" });
-        return NextResponse.json({ status: "polling", message: `status=${clips[0]?.status || "?"}` });
+        return NextResponse.json({ status: "error", message: `sucedeu mas sem audio_url. Raw: ${rawPreview}` });
       }
 
       const first = completos[0];
