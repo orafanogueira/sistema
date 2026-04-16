@@ -236,12 +236,18 @@ export function VideoStudio() {
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
       setVideosAnimados(data.videos || []);
-      const errosMsg = Array.isArray(data.erros) && data.erros.length > 0
-        ? `\nErros: ${data.erros.map((e: { source_img_id: string; erro: string }) => e.erro).slice(0, 3).join(" | ")}`
+      const errosList: Array<{ source_img_id: string; erro: string }> = data.erros || [];
+      const errosMsg = errosList.length > 0
+        ? ` | Erros: ${errosList.map((e) => e.erro.slice(0, 60)).join(" || ")}`
         : "";
       setAnimProgress(`${data.total_sucesso} de ${imgs.length} prontas${errosMsg}`);
-      if (data.total_sucesso > 0) toast.success(`${data.total_sucesso} animacoes prontas`);
-      else toast.error(`0 animacoes — ${data.erros?.[0]?.erro || "erro desconhecido"}`);
+      if (data.total_sucesso === imgs.length) {
+        toast.success(`${data.total_sucesso} animacoes prontas`);
+      } else if (data.total_sucesso > 0) {
+        toast.error(`Parcial: ${data.total_sucesso}/${imgs.length}`, errosList[0]?.erro || "ver debug");
+      } else {
+        toast.error("Todas falharam", errosList[0]?.erro || "erro");
+      }
     } catch (e: unknown) {
       setAnimProgress("");
       toast.error("Erro", e instanceof Error ? e.message : "tente novamente");
