@@ -112,15 +112,23 @@ Retorne APENAS o JSON, sem markdown.`,
   // 2. monta prompt final
   const hasText = texto_destaque?.trim();
   const textInstruction = hasText
-    ? `CRITICAL: Render this EXACT text on the image: "${texto_destaque}". TEXT RULES:
-- ALL text must be FULLY VISIBLE within image boundaries with safe margins (at least 8% from ALL edges)
-- Text must NEVER be cropped or cut off at ANY edge
-- Use 2-3 lines maximum, position on RIGHT side (person on LEFT), takes 30-35% of image width
-- Bold, large, impactful font with dark outline/stroke for readability
-- KEY WORDS must be in DIFFERENT COLORS for emphasis: use RED or YELLOW for numbers/money amounts, WHITE for other words
-- Create visual hierarchy: most important word BIGGEST and in BRIGHT color (red/yellow), supporting words smaller and white
-- This creates curiosity and makes people click — like MrBeast/Dotti thumbnails
-- Text should look hand-designed, not auto-generated`
+    ? `CRITICAL TEXT OVERLAY (Brazilian Portuguese): Render EXACTLY this text, character-by-character, with NO modifications, NO translation, NO typos: "${texto_destaque}"
+
+MANDATORY TEXT POSITIONING RULES:
+- Text occupies ONLY the CENTER 70% of the image (leave 15% empty margin on TOP, BOTTOM, LEFT, and RIGHT edges)
+- Text must be 100% INSIDE the image frame — if any letter touches an edge, REDO
+- Break into 2-3 short lines; position in the RIGHT HALF (person goes on LEFT HALF)
+- Each line max 15 characters
+- Font style: bold impact font (like Oswald, Bebas Neue, Anton) with heavy black stroke/shadow 8-12px thick
+- PRESERVE Portuguese accents exactly (ç, ã, õ, á, é, í, ó, ú)
+
+COLOR EMPHASIS (like MrBeast/Dotti/Casimiro):
+- Numbers, money values (R$, K, mil), and the most shocking word: use BRIGHT YELLOW (#FFD700) or RED (#FF2E2E)
+- Other words: pure WHITE (#FFFFFF)
+- All text has thick black outline for visibility over any background
+- Biggest word = most important word in bright color
+
+Double-check: is the text correct Portuguese? is it fully visible? If no to either, regenerate.`
     : `Do NOT include any text, letters or words in the image.`;
 
   const promptFinal = `Create a high-impact YouTube thumbnail in 16:9 for this video title: "${titulo}".
@@ -161,7 +169,8 @@ Style requirements:
     // Ideogram-specific configs
     if (hasText) {
       falBody.style = "realistic";
-      falBody.magic_prompt = true;
+      falBody.magic_prompt = false;  // desliga pra nao reescrever o prompt (preserva texto exato)
+      falBody.expand_prompt = false;
     } else {
       falBody.num_inference_steps = 28;
       falBody.enable_safety_checker = false;
