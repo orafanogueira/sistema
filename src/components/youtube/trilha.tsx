@@ -85,11 +85,43 @@ export function Trilha() {
     } finally { setLetraLoading(false); }
   };
 
+  const pollStatus = async (trilhaId: string) => {
+    for (let i = 0; i < 90; i++) {
+      await new Promise((r) => setTimeout(r, 5000));
+      setResultDebug(`Polling ${i + 1}/90... (~${(i + 1) * 5}s)`);
+      try {
+        const r = await fetch(`/api/youtube/trilha/status?id=${trilhaId}`);
+        if (!r.ok) continue;
+        const data = await r.json();
+        if (data.status === "complete" && data.trilha?.url) {
+          setResult({
+            url: data.trilha.url,
+            url_variacao_2: data.trilha.url_variacao_2,
+            prompt_suno: data.trilha.prompt_suno || "",
+            duracao: data.trilha.duracao_sec,
+          });
+          setResultDebug(`PRONTO: ${data.trilha.url.slice(0, 60)}...`);
+          toast.success("Música pronta! Veja abaixo.");
+          loadHistorico();
+          setTimeout(() => document.getElementById("trilha-resultado")?.scrollIntoView({ behavior: "smooth" }), 300);
+          return;
+        }
+        if (data.status === "error") {
+          setResultDebug(`ERRO: ${data.message}`);
+          toast.error("Suno falhou", data.message);
+          return;
+        }
+      } catch {}
+    }
+    setResultDebug("Timeout: Suno demorou mais de 7min. Tente novamente.");
+    toast.error("Timeout — Suno muito lento, tente novamente");
+  };
+
   const gerar = async () => {
     if (!form.descricao.trim()) return toast.error("Descreva o estilo/mood");
     setLoading(true);
     setResult(null);
-    setResultDebug("");
+    setResultDebug("Enviando pro Suno...");
     try {
       const descCompleta = `${form.descricao}, duration approximately ${form.duracao_seg} seconds`;
       const r = await fetch("/api/youtube/trilha", {
@@ -98,14 +130,9 @@ export function Trilha() {
       });
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
-      setResultDebug(`API OK: url=${data.url ? "SIM (" + data.url.slice(0, 60) + "...)" : "VAZIO"} | duracao=${data.duracao || "?"} | url_v2=${data.url_variacao_2 ? "SIM" : "NAO"}`);
-      setResult(data);
-      toast.success("Música gerada! Role pra baixo pra ver.", `${data.duracao ? Math.round(data.duracao) + "s" : "pronta"}`);
-      loadHistorico();
-      // auto-scroll pro resultado
-      setTimeout(() => {
-        document.getElementById("trilha-resultado")?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 300);
+      setResultDebug(`Task criada: ${data.task_id}. Aguardando Suno gerar (1-3min)...`);
+      // inicia polling assincrono
+      pollStatus(data.trilha_id);
     } catch (e: unknown) {
       toast.error("Erro", e instanceof Error ? e.message : "tente novamente");
     } finally { setLoading(false); }

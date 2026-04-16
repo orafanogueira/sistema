@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { aiChat } from "@/lib/integrations/ai";
-import { gerarMusicaSuno } from "@/lib/youtube/suno-api";
 
-export const maxDuration = 800;
+export const maxDuration = 60;
 
 const PROMPT_OTIMIZADOR = `Voce e especialista em prompts de Suno AI (geracao de musica). Converte o pedido do usuario em um prompt OTIMIZADO em ingles seguindo o estilo Suno.
 
@@ -18,6 +17,10 @@ REGRAS:
 
 Output: APENAS o prompt final, sem explicacao, sem aspas.`;
 
+/**
+ * POST: cria task no SunoAPI e retorna ID imediatamente (frontend faz polling em /status).
+ * Nao espera o Suno terminar — evita timeout do Vercel.
+ */
 export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -28,7 +31,7 @@ export async function POST(req: Request) {
   const { descricao, tipo, instrumental, titulo, letra } = await req.json();
   if (!descricao?.trim()) return new NextResponse("descricao obrigatoria", { status: 400 });
 
-  // 1. Claude otimiza o prompt pro Suno
+  // 1. Claude otimiza o prompt
   let promptSuno = "";
   try {
     promptSuno = await aiChat({
@@ -38,37 +41,44 @@ export async function POST(req: Request) {
       maxTokens: 400,
     });
     promptSuno = promptSuno.trim().replace(/^["']|["']$/g, "").slice(0, 380);
-  } catch (e) {
-    promptSuno = descricao;   // fallback: usa direto
+  } catch {
+    promptSuno = descricao.slice(0, 380);
   }
 
-  // 2. Chama Suno via PiAPI
-  let result;
-  try {
-    result = await gerarMusicaSuno({
-      prompt: promptSuno,
-      make_instrumental: instrumental ?? true,
-      title: titulo,
-      lyrics: letra,
-    });
-  } catch (e: unknown) {
-    return new NextResponse(e instanceof Error ? e.message : "erro Suno", { status: 500 });
-  }
+  // 2. Cria task no SunoAPI (NAO espera completar)
+  const key = process.env.SUNOAPI_KEY || process.env.SUNO_API_KEY;
+  if (!key) return new NextResponse("SUNOAPI_KEY ausente", { status: 500 });
 
-  // 3. Baixa audio e salva no Storage
-  if (!result.audio_url) {
-    return new NextResponse(`Suno completou mas sem audio_url. Result: ${JSON.stringify(result).slice(0, 300)}`, { status: 500 });
-  }
-  const audioRes = await fetch(result.audio_url);
-  if (!audioRes.ok) return new NextResponse(`Nao conseguiu baixar audio: ${audioRes.status} - ${result.audio_url}`, { status: 500 });
-  const buffer = Buffer.from(await audioRes.arrayBuffer());
-  const path = `${m.tenant_id}/trilha-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.mp3`;
-  const { error: upErr } = await supabase.storage.from("social-media").upload(path, buffer, {
-    contentType: "audio/mpeg", upsert: false,
+  const custom = !!(letra);
+  const tags = (promptSuno || descricao).slice(0, 180);
+
+  const body: Record<string, unknown> = custom
+    ? { custom_mode: true, prompt: letra || promptSuno, title: titulo || "Untitled", tags, make_instrumental: instrumental ?? false, mv: "chirp-v3-5" }
+    : { custom_mode: false, gpt_description_prompt: promptSuno, make_instrumental: instrumental ?? true, mv: "chirp-v3-5" };
+
+  const createRes = await fetch("https://api.sunoapi.com/api/v1/suno/create", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
-  if (upErr) return new NextResponse(`Storage: ${upErr.message}`, { status: 400 });
-  const { data: pub } = supabase.storage.from("social-media").getPublicUrl(path);
+  if (!createRes.ok) {
+    const txt = await createRes.text();
+    return new NextResponse(`SunoAPI create ${createRes.status}: ${txt.slice(0, 300)}`, { status: 500 });
+  }
+  const created = await createRes.json();
+  const data = created.data ?? created;
+  type ClipShape = { id?: string };
+  const taskId: string =
+    data.task_id || data.taskId || created.task_id ||
+    (Array.isArray(data.clips) ? data.clips.map((c: ClipShape) => c.id).filter(Boolean).join(",") : "") ||
+    (Array.isArray(data.clip_ids) ? data.clip_ids.join(",") : "") ||
+    data.id || "";
 
+  if (!taskId) {
+    return new NextResponse(`SunoAPI sem task_id. Raw: ${JSON.stringify(created).slice(0, 400)}`, { status: 500 });
+  }
+
+  // 3. Salva no DB com url="pending" (status endpoint vai completar depois)
   const { data: row } = await supabase.from("youtube_trilhas").insert({
     tenant_id: m.tenant_id,
     tipo: tipo || "background",
@@ -76,26 +86,28 @@ export async function POST(req: Request) {
     prompt_suno: promptSuno,
     letra: letra || null,
     instrumental: instrumental ?? true,
-    titulo_variacao: result.title,
-    duracao_sec: result.duration,
-    url: pub.publicUrl,
-    storage_path: path,
-    url_variacao_2: result.audio_url_2,
+    titulo_variacao: titulo || null,
+    url: "pending",
+    storage_path: "pending",
+    task_id: taskId,
     created_by: user.id,
   }).select().single();
 
+  // Retorna IMEDIATAMENTE — frontend faz polling em /status?id=xxx
   return NextResponse.json({
-    trilha: row,
-    url: pub.publicUrl,
-    url_variacao_2: result.audio_url_2,
+    trilha_id: row?.id,
+    task_id: taskId,
     prompt_suno: promptSuno,
-    duracao: result.duration,
+    status: "polling",
+    message: "Suno gerando. Frontend vai fazer polling ate completar.",
   });
 }
 
 export async function GET() {
   const supabase = await createClient();
   const { data } = await supabase.from("youtube_trilhas")
-    .select("*").order("created_at", { ascending: false }).limit(30);
+    .select("*")
+    .neq("url", "pending")
+    .order("created_at", { ascending: false }).limit(30);
   return NextResponse.json(data || []);
 }
