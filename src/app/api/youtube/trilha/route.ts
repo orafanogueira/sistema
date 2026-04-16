@@ -56,28 +56,45 @@ export async function POST(req: Request) {
     ? { custom_mode: true, prompt: letra || promptSuno, title: titulo || "Untitled", tags, make_instrumental: instrumental ?? false }
     : { custom_mode: false, gpt_description_prompt: promptSuno, make_instrumental: instrumental ?? true };
 
-  // tenta 2 endpoints (antigo + novo)
-  const endpoints = [
-    "https://api.sunoapi.com/api/v1/suno/create",
-    "https://api.sunoapi.com/api/v1/suno/generate",
+  // testa varias combinacoes de endpoint + auth + payload
+  const tentativas: Array<{ url: string; auth: string; payload: Record<string, unknown> }> = [
+    // tentativa 1: SunoAPI.com v1 classico (Bearer)
+    { url: "https://api.sunoapi.com/api/v1/suno/create", auth: `Bearer ${key}`, payload: body },
+    // tentativa 2: api-key header
+    { url: "https://api.sunoapi.com/api/v1/suno/create", auth: "_apikey_", payload: body },
+    // tentativa 3: endpoint studio
+    { url: "https://api.sunoapi.com/api/v1/generate", auth: `Bearer ${key}`, payload: body },
+    // tentativa 4: payload minimo
+    { url: "https://api.sunoapi.com/api/v1/suno/create", auth: `Bearer ${key}`,
+      payload: { prompt: promptSuno, make_instrumental: true } },
+    // tentativa 5: endpoint studio + minimo
+    { url: "https://api.sunoapi.com/api/v1/generate", auth: `Bearer ${key}`,
+      payload: { prompt: promptSuno } },
   ];
-  let createRes: Response | null = null;
-  let lastError = "";
 
-  for (const endpoint of endpoints) {
-    createRes = await fetch(endpoint, {
+  let createRes: Response | null = null;
+  const erros: string[] = [];
+
+  for (const t of tentativas) {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (t.auth === "_apikey_") headers["api-key"] = key;
+    else headers["Authorization"] = t.auth;
+
+    const r = await fetch(t.url, {
       method: "POST",
-      headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      headers,
+      body: JSON.stringify(t.payload),
     });
-    if (createRes.ok) break;
-    const txt = await createRes.text();
-    lastError = `${endpoint} -> ${createRes.status}: ${txt.slice(0, 200)}`;
-    createRes = null;
+    if (r.ok) {
+      createRes = r;
+      break;
+    }
+    const txt = await r.text();
+    erros.push(`${t.url.split("/").pop()} [${t.auth === "_apikey_" ? "apikey" : "bearer"}] -> ${r.status}: ${txt.slice(0, 100)}`);
   }
 
-  if (!createRes || !createRes.ok) {
-    return new NextResponse(`SunoAPI falhou todos endpoints. PAYLOAD enviado: ${JSON.stringify(body).slice(0, 200)} | ERRO: ${lastError}`, { status: 500 });
+  if (!createRes) {
+    return new NextResponse(`SunoAPI todas tentativas falharam: ${erros.join(" || ")}`, { status: 500 });
   }
   const created = await createRes.json();
   const data = created.data ?? created;
