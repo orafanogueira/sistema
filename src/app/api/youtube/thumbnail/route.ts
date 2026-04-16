@@ -152,7 +152,7 @@ Style requirements:
 
     // Ideogram-specific configs
     if (hasText) {
-      falBody.style = "REALISTIC";
+      falBody.style = "realistic";
       falBody.magic_prompt = true;
     } else {
       falBody.num_inference_steps = 28;
