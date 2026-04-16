@@ -1,22 +1,31 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Loader2, Copy, Check, Video } from "lucide-react";
 import { toast } from "@/components/ui/toaster";
 
+const STORAGE = "yt-roteiro-v1";
+
 export function Roteiro() {
+  const saved = typeof window !== "undefined" ? (() => {
+    try { return JSON.parse(localStorage.getItem(STORAGE) || "{}"); } catch { return {}; }
+  })() : {};
   const [loading, setLoading] = useState(false);
-  const [roteiro, setRoteiro] = useState("");
+  const [roteiro, setRoteiro] = useState<string>(saved.roteiro || "");
   const [copied, setCopied] = useState(false);
-  const [meta, setMeta] = useState<{ duracao_min: number; hooks_esperados: number } | null>(null);
-  const [form, setForm] = useState({
+  const [meta, setMeta] = useState<{ duracao_min: number; hooks_esperados: number } | null>(saved.meta || null);
+  const [form, setForm] = useState(saved.form || {
     titulo: "",
     duracao_min: 10,
     tema: "",
     cta_final: "",
   });
+
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE, JSON.stringify({ roteiro, meta, form })); } catch {}
+  }, [roteiro, meta, form]);
 
   const gerar = async () => {
     if (!form.titulo.trim()) return toast.error("Informe o titulo");

@@ -16,15 +16,46 @@ interface VideoImg { id: string; url: string; ordem: number; prompt: string }
 interface ThumbRes { url: string; padroes_detectados: Record<string, unknown>; thumbs_analisadas: number }
 interface Canal { id: string; channel_name: string }
 
+const STORAGE_KEY = "yt-video-studio-v1";
+
+interface StudioState {
+  step?: number;
+  audioUrl?: string | null;
+  audioLimpoUrl?: string | null;
+  vozForm?: Record<string, unknown>;
+  imgsForm?: Record<string, unknown>;
+  imagens?: VideoImg[];
+  selecionadas?: string[];
+  apenasPrompts?: Array<{ ordem: number; descricao_cena: string; prompt_ingles: string }>;
+  animForm?: Record<string, unknown>;
+  videosAnimados?: Array<{ source_img_id: string; video_url: string }>;
+  thumbForm?: Record<string, unknown>;
+  thumb?: ThumbRes | null;
+  videoFinalUrl?: string | null;
+}
+
+function loadState(): StudioState {
+  if (typeof window === "undefined") return {};
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch { return {}; }
+}
+function saveState(patch: StudioState) {
+  if (typeof window === "undefined") return;
+  try {
+    const cur = loadState();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...cur, ...patch }));
+  } catch {}
+}
+
 export function VideoStudio() {
-  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
+  const saved = typeof window !== "undefined" ? loadState() : {};
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5 | 6>((saved.step as 1 | 2 | 3 | 4 | 5 | 6) || 1);
 
   // === STEP 1: voz ===
   const [voices, setVoices] = useState<Voice[]>([]);
   const [vozLoading, setVozLoading] = useState(false);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(saved.audioUrl || null);
   const [previewPlaying, setPreviewPlaying] = useState<string | null>(null);
-  const [vozForm, setVozForm] = useState({
+  const [vozForm, setVozForm] = useState((saved.vozForm as { text: string; voice_id: string; stability: number; similarity_boost: number }) || {
     text: "",
     voice_id: "",
     stability: 0.5,
@@ -47,27 +78,27 @@ export function VideoStudio() {
 
   // === STEP 2: remove pauses ===
   const [pausasLoading, setPausasLoading] = useState(false);
-  const [audioLimpoUrl, setAudioLimpoUrl] = useState<string | null>(null);
+  const [audioLimpoUrl, setAudioLimpoUrl] = useState<string | null>(saved.audioLimpoUrl || null);
   const [audioLimpoBlob, setAudioLimpoBlob] = useState<Blob | null>(null);
 
   // === STEP 3: imagens ===
   const [imgsLoading, setImgsLoading] = useState(false);
-  const [imagens, setImagens] = useState<VideoImg[]>([]);
-  const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set());
-  const [imgsForm, setImgsForm] = useState({ titulo: "", qtd: 4, tema: "", modelo: "flux-schnell" });
-  const [apenasPrompts, setApenasPrompts] = useState<Array<{ ordem: number; descricao_cena: string; prompt_ingles: string }>>([]);
+  const [imagens, setImagens] = useState<VideoImg[]>((saved.imagens as VideoImg[]) || []);
+  const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set(saved.selecionadas || []));
+  const [imgsForm, setImgsForm] = useState((saved.imgsForm as { titulo: string; qtd: number; tema: string; modelo: string }) || { titulo: "", qtd: 4, tema: "", modelo: "flux-schnell" });
+  const [apenasPrompts, setApenasPrompts] = useState<Array<{ ordem: number; descricao_cena: string; prompt_ingles: string }>>(saved.apenasPrompts || []);
   const [imgErros, setImgErros] = useState<Array<{ ordem: number; erro: string }>>([]);
 
   // === STEP 4: ANIMAR ===
   const [animLoading, setAnimLoading] = useState(false);
   const [animProgress, setAnimProgress] = useState("");
-  const [animForm, setAnimForm] = useState({ modelo: "kling", duration: 5, prompt_movimento: "" });
-  const [videosAnimados, setVideosAnimados] = useState<Array<{ source_img_id: string; video_url: string }>>([]);
+  const [animForm, setAnimForm] = useState((saved.animForm as { modelo: string; duration: number; prompt_movimento: string }) || { modelo: "kling", duration: 5, prompt_movimento: "" });
+  const [videosAnimados, setVideosAnimados] = useState<Array<{ source_img_id: string; video_url: string }>>(saved.videosAnimados || []);
 
   // === STEP 5: MONTAR VIDEO ===
   const [montarLoading, setMontarLoading] = useState(false);
   const [montarStatus, setMontarStatus] = useState("");
-  const [videoFinalUrl, setVideoFinalUrl] = useState<string | null>(null);
+  const [videoFinalUrl, setVideoFinalUrl] = useState<string | null>(saved.videoFinalUrl || null);
 
   // === STEP 4: thumbnail ===
   const [thumbLoading, setThumbLoading] = useState(false);
@@ -75,6 +106,17 @@ export function VideoStudio() {
   const [canais, setCanais] = useState<Canal[]>([]);
   const [thumbForm, setThumbForm] = useState({ titulo: "", canal_referencia_id: "", estilo_custom: "", texto_destaque: "", referencia_url: "" });
   const [refUploading, setRefUploading] = useState(false);
+
+  // auto-save: persiste no localStorage sempre que algo relevante muda
+  useEffect(() => {
+    saveState({
+      step, audioUrl, audioLimpoUrl,
+      vozForm, imgsForm, animForm,
+      imagens, apenasPrompts, videosAnimados,
+      selecionadas: Array.from(selecionadas),
+      videoFinalUrl,
+    });
+  }, [step, audioUrl, audioLimpoUrl, vozForm, imgsForm, animForm, imagens, apenasPrompts, videosAnimados, selecionadas, videoFinalUrl]);
 
   useEffect(() => {
     fetch("/api/youtube/voz").then((r) => r.json()).then((d) => {
@@ -349,9 +391,19 @@ export function VideoStudio() {
     { num: 6 as const, label: "Thumbnail", icon: Sparkles },
   ];
 
+  const limparTudo = () => {
+    if (!confirm("Apagar todo progresso e começar de novo? Não dá pra desfazer.")) return;
+    localStorage.removeItem(STORAGE_KEY);
+    window.location.reload();
+  };
+
   return (
     <div className="space-y-4">
       {/* Stepper */}
+      <div className="flex items-center justify-between">
+        <div className="text-xs text-muted-foreground">Progresso salvo automaticamente</div>
+        <Button size="sm" variant="ghost" onClick={limparTudo}>Limpar tudo</Button>
+      </div>
       <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
         {STEPS.map((s) => {
           const Icon = s.icon;
