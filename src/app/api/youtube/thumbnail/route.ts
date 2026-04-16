@@ -112,7 +112,15 @@ Retorne APENAS o JSON, sem markdown.`,
   // 2. monta prompt final
   const hasText = texto_destaque?.trim();
   const textInstruction = hasText
-    ? `CRITICAL: Render this EXACT text on the image: "${texto_destaque}". TEXT RULES: ALL text must be FULLY VISIBLE within the image boundaries with safe margins (at least 5% from ALL edges). Text must NOT be cropped or cut off at ANY edge. Use 2-3 lines maximum. Bold, large font with dark outline/shadow for readability. Position text on the RIGHT side of the image (person on LEFT). Text takes 30-35% of image width.`
+    ? `CRITICAL: Render this EXACT text on the image: "${texto_destaque}". TEXT RULES:
+- ALL text must be FULLY VISIBLE within image boundaries with safe margins (at least 8% from ALL edges)
+- Text must NEVER be cropped or cut off at ANY edge
+- Use 2-3 lines maximum, position on RIGHT side (person on LEFT), takes 30-35% of image width
+- Bold, large, impactful font with dark outline/stroke for readability
+- KEY WORDS must be in DIFFERENT COLORS for emphasis: use RED or YELLOW for numbers/money amounts, WHITE for other words
+- Create visual hierarchy: most important word BIGGEST and in BRIGHT color (red/yellow), supporting words smaller and white
+- This creates curiosity and makes people click — like MrBeast/Dotti thumbnails
+- Text should look hand-designed, not auto-generated`
     : `Do NOT include any text, letters or words in the image.`;
 
   const promptFinal = `Create a high-impact YouTube thumbnail in 16:9 for this video title: "${titulo}".

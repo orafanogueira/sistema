@@ -6,7 +6,7 @@ import { Input, Label, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Loader2, Mic, Scissors, Image as ImageIcon, Sparkles, Copy, Check,
-  Download, Play, Wand2, Upload,
+  Download, Play, Wand2, Upload, Film,
 } from "lucide-react";
 import { toast } from "@/components/ui/toaster";
 import { removePausesFromAudio } from "@/lib/youtube/remove-pauses";
@@ -17,7 +17,7 @@ interface ThumbRes { url: string; padroes_detectados: Record<string, unknown>; t
 interface Canal { id: string; channel_name: string }
 
 export function VideoStudio() {
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
 
   // === STEP 1: voz ===
   const [voices, setVoices] = useState<Voice[]>([]);
@@ -58,10 +58,16 @@ export function VideoStudio() {
   const [apenasPrompts, setApenasPrompts] = useState<Array<{ ordem: number; descricao_cena: string; prompt_ingles: string }>>([]);
   const [imgErros, setImgErros] = useState<Array<{ ordem: number; erro: string }>>([]);
 
-  // === ANIMAR ===
+  // === STEP 4: ANIMAR ===
   const [animLoading, setAnimLoading] = useState(false);
+  const [animProgress, setAnimProgress] = useState("");
   const [animForm, setAnimForm] = useState({ modelo: "veo-3-fast", duration: 5, prompt_movimento: "" });
   const [videosAnimados, setVideosAnimados] = useState<Array<{ source_img_id: string; video_url: string }>>([]);
+
+  // === STEP 5: MONTAR VIDEO ===
+  const [montarLoading, setMontarLoading] = useState(false);
+  const [montarStatus, setMontarStatus] = useState("");
+  const [videoFinalUrl, setVideoFinalUrl] = useState<string | null>(null);
 
   // === STEP 4: thumbnail ===
   const [thumbLoading, setThumbLoading] = useState(false);
@@ -210,17 +216,18 @@ export function VideoStudio() {
     }
   };
 
-  const animar = async () => {
-    const sel = imagens.filter((i) => selecionadas.has(i.id));
-    if (sel.length === 0) return toast.error("Selecione imagens pra animar");
-    if (sel.length > 10) return toast.error("Maximo 10 por vez");
+  const animar = async (lista?: VideoImg[]) => {
+    const imgs = lista || imagens.filter((i) => selecionadas.has(i.id));
+    if (imgs.length === 0) return toast.error("Sem imagens pra animar");
+    if (imgs.length > 16) return toast.error("Maximo 16 por vez");
     setAnimLoading(true);
     setVideosAnimados([]);
+    setAnimProgress(`Animando 0/${imgs.length}...`);
     try {
       const r = await fetch("/api/youtube/animar-imagens", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          imagens: sel.map((i) => ({ id: i.id, url: i.url, prompt: i.prompt })),
+          imagens: imgs.map((i) => ({ id: i.id, url: i.url, prompt: i.prompt })),
           modelo: animForm.modelo,
           duration: animForm.duration,
           prompt_movimento: animForm.prompt_movimento,
@@ -229,10 +236,56 @@ export function VideoStudio() {
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
       setVideosAnimados(data.videos || []);
-      toast.success(`${data.total_sucesso} de ${sel.length} animacoes prontas`);
+      setAnimProgress(`${data.total_sucesso} de ${imgs.length} prontas`);
+      toast.success(`${data.total_sucesso} animacoes prontas`);
     } catch (e: unknown) {
+      setAnimProgress("");
       toast.error("Erro", e instanceof Error ? e.message : "tente novamente");
     } finally { setAnimLoading(false); }
+  };
+
+  const montarVideo = async () => {
+    if (videosAnimados.length === 0) return toast.error("Anime as imagens primeiro (passo 4)");
+    const audioSrc = audioLimpoUrl || audioUrl;
+    setMontarLoading(true);
+    setMontarStatus("Enviando pro Shotstack...");
+    setVideoFinalUrl(null);
+    try {
+      const r = await fetch("/api/youtube/montar-video", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clips: videosAnimados.map((v) => ({ url: v.video_url, duration: animForm.duration })),
+          audio_url: audioSrc || undefined,
+        }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const data = await r.json();
+      const renderId = data.render_id;
+      if (!renderId) throw new Error("Sem render_id");
+      // poll status
+      for (let i = 0; i < 120; i++) {
+        await new Promise((r) => setTimeout(r, 5000));
+        setMontarStatus(`Renderizando... (${(i + 1) * 5}s)`);
+        const sr = await fetch(`/api/youtube/montar-video?render_id=${renderId}`);
+        if (!sr.ok) continue;
+        const sd = await sr.json();
+        if (sd.status === "done" && sd.video_url) {
+          setVideoFinalUrl(sd.video_url);
+          setMontarStatus("Video pronto!");
+          toast.success("Video final pronto! Baixe abaixo.");
+          return;
+        }
+        if (sd.status === "failed") {
+          setMontarStatus(`Falhou: ${sd.message}`);
+          toast.error("Shotstack falhou", sd.message);
+          return;
+        }
+      }
+      setMontarStatus("Timeout — render demorou demais");
+    } catch (e: unknown) {
+      setMontarStatus("");
+      toast.error("Erro", e instanceof Error ? e.message : "tente novamente");
+    } finally { setMontarLoading(false); }
   };
 
   const gerarThumb = async () => {
@@ -265,15 +318,17 @@ export function VideoStudio() {
 
   const STEPS = [
     { num: 1 as const, label: "Voz", icon: Mic },
-    { num: 2 as const, label: "Remover pausas", icon: Scissors },
-    { num: 3 as const, label: "Imagens do video", icon: ImageIcon },
-    { num: 4 as const, label: "Thumbnail", icon: Sparkles },
+    { num: 2 as const, label: "Pausas", icon: Scissors },
+    { num: 3 as const, label: "Imagens", icon: ImageIcon },
+    { num: 4 as const, label: "Animar", icon: Play },
+    { num: 5 as const, label: "Montar video", icon: Film },
+    { num: 6 as const, label: "Thumbnail", icon: Sparkles },
   ];
 
   return (
     <div className="space-y-4">
       {/* Stepper */}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
         {STEPS.map((s) => {
           const Icon = s.icon;
           const active = step === s.num;
@@ -566,17 +621,115 @@ export function VideoStudio() {
                   </div>
                 )}
 
-                <Button onClick={() => setStep(4)} className="w-full">Proximo: thumbnail →</Button>
+                <Button onClick={() => setStep(4)} className="w-full">Proximo →</Button>
               </>
             )}
           </CardContent>
         </Card>
       )}
 
-      {/* STEP 4: thumbnail */}
+      {/* STEP 4: animar */}
       {step === 4 && (
         <Card>
-          <CardHeader><CardTitle className="text-sm">4. Thumbnail magnetica</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm">4. Animar todas as imagens</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            {imagens.length === 0 ? (
+              <div className="text-sm text-muted-foreground">Gere imagens no passo 3 primeiro.</div>
+            ) : (
+              <>
+                <div className="text-sm">{imagens.length} imagens prontas pra animar.</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-[10px]">Modelo</Label>
+                    <select className="mt-0.5 flex h-9 w-full rounded-md border border-input bg-background/40 px-2 text-xs"
+                      value={animForm.modelo} onChange={(e) => setAnimForm({ ...animForm, modelo: e.target.value })}>
+                      <optgroup label="Google (GEMINI_API_KEY)">
+                        <option value="veo-3">Veo 3 (top · ~$0.50)</option>
+                        <option value="veo-3-fast">Veo 3 Fast (rapido · ~$0.20)</option>
+                        <option value="veo-2">Veo 2 (~$0.10)</option>
+                      </optgroup>
+                      <optgroup label="fal.ai (FAL_KEY)">
+                        <option value="kling">Kling (~$0.30)</option>
+                        <option value="ltx">LTX (~$0.10)</option>
+                        <option value="luma">Luma (~$0.40)</option>
+                      </optgroup>
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-[10px]">Duracao (s)</Label>
+                    <Input type="number" className="mt-0.5 h-9 text-xs" min={3} max={10}
+                      value={animForm.duration} onChange={(e) => setAnimForm({ ...animForm, duration: Number(e.target.value) })} />
+                  </div>
+                </div>
+                <Input placeholder="Prompt de movimento (ex: slow zoom in, cinematic pan)" className="text-xs"
+                  value={animForm.prompt_movimento}
+                  onChange={(e) => setAnimForm({ ...animForm, prompt_movimento: e.target.value })} />
+                {animProgress && <div className="text-xs text-muted-foreground">{animProgress}</div>}
+                <Button onClick={() => animar(imagens)} disabled={animLoading} className="w-full">
+                  {animLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Animando...</> : <><Play className="h-4 w-4" /> Animar todas ({imagens.length} imagens)</>}
+                </Button>
+
+                {videosAnimados.length > 0 && (
+                  <div className="space-y-2 border-t border-border pt-3">
+                    <div className="text-sm font-bold">{videosAnimados.length} clips animados</div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {videosAnimados.map((v, i) => (
+                        <div key={i} className="space-y-1">
+                          <video src={v.video_url} controls className="w-full rounded border border-border aspect-video" />
+                          <a href={v.video_url} download={`clip-${i + 1}.mp4`}>
+                            <Button size="sm" variant="outline" className="w-full"><Download className="h-3 w-3" /> Clip {i + 1}</Button>
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                    <Button onClick={() => setStep(5)} className="w-full">Proximo: montar video final →</Button>
+                  </div>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* STEP 5: montar video */}
+      {step === 5 && (
+        <Card>
+          <CardHeader><CardTitle className="text-sm">5. Montar video final</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            {videosAnimados.length === 0 ? (
+              <div className="text-sm text-muted-foreground">Anime as imagens no passo 4 primeiro.</div>
+            ) : (
+              <>
+                <div className="text-sm">{videosAnimados.length} clips + {audioUrl || audioLimpoUrl ? "audio pronto" : "sem audio"}</div>
+                <div className="p-3 bg-cyan/5 border border-cyan/30 rounded text-xs text-muted-foreground space-y-1">
+                  <div><b>Clips animados:</b> {videosAnimados.length} x {animForm.duration}s = {videosAnimados.length * animForm.duration}s total</div>
+                  <div><b>Audio:</b> {audioLimpoUrl ? "narracao (sem pausas)" : audioUrl ? "narracao (original)" : "nenhum"}</div>
+                </div>
+                {montarStatus && <div className="text-xs text-muted-foreground font-mono">{montarStatus}</div>}
+                <Button onClick={montarVideo} disabled={montarLoading} className="w-full">
+                  {montarLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Renderizando...</> : <><Film className="h-4 w-4" /> Montar video final</>}
+                </Button>
+
+                {videoFinalUrl && (
+                  <div className="space-y-2 border-t border-green-500/30 pt-3 bg-green-500/5 p-3 rounded">
+                    <div className="text-sm font-bold text-green-400">Video final pronto!</div>
+                    <video src={videoFinalUrl} controls className="w-full rounded border border-border aspect-video" />
+                    <a href={videoFinalUrl} download="video-final.mp4">
+                      <Button className="w-full"><Download className="h-4 w-4" /> Baixar MP4</Button>
+                    </a>
+                    <Button variant="outline" className="w-full" onClick={() => setStep(6)}>Proximo →</Button>
+                  </div>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* STEP 6: thumbnail */}
+      {step === 6 && (
+        <Card>
+          <CardHeader><CardTitle className="text-sm">6. Thumbnail magnetica</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             <div>
               <Label>Titulo do video</Label>
