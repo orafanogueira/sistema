@@ -11,7 +11,9 @@ REGRAS DOS PROMPTS:
 - Em INGLES (Gemini performa melhor)
 - Estilo FOTOGRAFICO (cinematic, photorealistic, documentary)
 - 16:9 (paisagem) obrigatorio — descrever composicao horizontal
-- NUNCA pedir texto/letras/palavras na imagem
+- CRITICAL: Include "NO text, no letters, no words, no writing, no signs, no logos, clean image, minimalist scenery" in EVERY prompt
+- Se aparecer texto em placa/objeto, deve ser em PORTUGUES (contexto brasileiro)
+- NUNCA gerar imagens com texto legivel em ingles
 - Incluir: iluminacao, angulo, mood, personagens (sem rostos especificos), ambiente
 - Coerencia visual entre as imagens (mesmo estilo/paleta)
 - Progressao narrativa: cenas iniciais, desenvolvimento, momentos de tensao/viradas, encerramento

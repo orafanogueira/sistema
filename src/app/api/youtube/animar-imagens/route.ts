@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-export const maxDuration = 600;
+export const maxDuration = 800;
 
 /** Veo 3 (Google) - predict long running + polling. */
 async function veoAnimate(imgUrl: string, prompt: string, model: string): Promise<string> {
@@ -128,8 +128,8 @@ export async function POST(req: Request) {
   const videos: Array<{ source_img_id: string; video_url: string }> = [];
   const erros: Array<{ source_img_id: string; erro: string }> = [];
 
-  // Concorrencia: 3 paralelo pra ambos (Veo + fal.ai)
-  const conc = 3;
+  // Concorrencia: todas as imagens em paralelo (max 16)
+  const conc = Math.min(imagens.length, 16);
   for (let i = 0; i < imagens.length; i += conc) {
     const batch = imagens.slice(i, i + conc);
     const results = await Promise.all(batch.map(async (img) => {
