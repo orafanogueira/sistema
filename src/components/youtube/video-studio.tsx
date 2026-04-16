@@ -61,7 +61,7 @@ export function VideoStudio() {
   // === STEP 4: ANIMAR ===
   const [animLoading, setAnimLoading] = useState(false);
   const [animProgress, setAnimProgress] = useState("");
-  const [animForm, setAnimForm] = useState({ modelo: "veo-3-fast", duration: 5, prompt_movimento: "" });
+  const [animForm, setAnimForm] = useState({ modelo: "kling", duration: 5, prompt_movimento: "" });
   const [videosAnimados, setVideosAnimados] = useState<Array<{ source_img_id: string; video_url: string }>>([]);
 
   // === STEP 5: MONTAR VIDEO ===

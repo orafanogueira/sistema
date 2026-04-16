@@ -89,7 +89,7 @@ export function Trilha() {
     for (let i = 0; i < 120; i++) {
       await new Promise((r) => setTimeout(r, 5000));
       try {
-        const r = await fetch(`/api/youtube/trilha/status?id=${trilhaId}`);
+        const r = await fetch(`/api/youtube/trilha-status?id=${trilhaId}`);
         if (!r.ok) { setResultDebug(`Poll ${i+1}: HTTP ${r.status}`); continue; }
         const data = await r.json();
         setResultDebug(`Poll ${i+1} (~${(i+1)*5}s): ${data.status} — ${(data.message || "").slice(0, 200)}`);
