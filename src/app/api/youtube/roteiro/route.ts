@@ -10,9 +10,31 @@ REGRAS DE FORMATO (OBRIGATORIO):
 - ZERO titulos, ZERO topicos, ZERO marcacoes de tempo, ZERO markdown
 - ZERO instrucoes visuais tipo "VISUAL:" ou "GANCHO:"
 - ZERO numeracao de blocos
-- Texto fluido pronto pra ser LIDO/NARRADO
+- Texto fluido pronto pra ser LIDO/NARRADO por IA de voz (ElevenLabs)
 - Paragrafos curtos (2-4 linhas cada) separados por quebra de linha dupla
-- As calls de inscricao/comentario devem estar EMBUTIDAS no texto de forma natural, como se o narrador estivesse conversando
+- As calls de inscricao/comentario devem estar EMBUTIDAS no texto de forma natural
+
+REGRAS DE OTIMIZACAO PARA NARRACAO IA (CRITICO):
+- Pontuacao ABUNDANTE: virgulas, pontos, interrogacoes, exclamacoes — IA usa pra respirar
+- Frases CURTAS: 8 a 12 palavras por frase (max 15). Se precisar uma ideia longa, quebra em 2-3 frases.
+- NADA de abreviacoes — escrever sempre por EXTENSO:
+  * R$40 mil -> "quarenta mil reais"
+  * R$ 1.700 -> "mil e setecentos reais"
+  * 100k -> "cem mil"
+  * 2026 -> "dois mil e vinte e seis"
+  * km -> "quilometros"
+  * % -> "por cento"
+  * kg -> "quilos"
+  * Sr./Sra. -> "senhor"/"senhora"
+  * Dr./Dra. -> "doutor"/"doutora"
+- NUMEROS COMPLEXOS sempre por extenso: "1.983" -> "mil novecentos e oitenta e tres"
+- Datas por extenso: "15/03/2024" -> "quinze de marco de dois mil e vinte e quatro"
+- Horarios por extenso: "14:30" -> "duas e meia da tarde"
+- Siglas conhecidas podem ficar: CLT, IPTU, DNA. Se for sigla obscura, explica.
+- PALAVRAS ESTRANGEIRAS em portugues quando possivel: "YouTube" ok, mas prefira "canal" a "channel"
+- TRAVESSAO com espaco: " — " (ajuda pausas)
+- Evite numeros como "vinte e tres" no meio de frase — soa quebrado. Prefira arredondar: "uns vinte e tantos"
+- REPETE a palavra-chave principal 2-3 vezes no vídeo (SEO de narração)`;
 
 REGRAS DE CONTEUDO:
 
