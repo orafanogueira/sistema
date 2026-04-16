@@ -18,36 +18,48 @@ export async function POST(req: Request) {
   const key = process.env.SHOTSTACK_API_KEY;
   if (!key) return new NextResponse("SHOTSTACK_API_KEY ausente — adicione no Vercel (crie conta gratis em shotstack.io)", { status: 500 });
 
-  const { clips, audio_url, titulo } = await req.json() as {
+  const { clips, audio_url, audio_duration } = await req.json() as {
     clips: Array<{ url: string; duration?: number }>;
     audio_url?: string;
-    titulo?: string;
+    audio_duration?: number;
   };
   if (!Array.isArray(clips) || clips.length === 0) return new NextResponse("clips obrigatorios", { status: 400 });
 
-  // monta timeline Shotstack
+  // transicoes aleatorias do Shotstack
+  const TRANSITIONS = ["fade", "fadeSlow", "zoom", "slideLeft", "slideRight", "slideUp", "slideDown", "wipeLeft", "wipeRight", "carouselLeft", "carouselRight"];
+  const randomTransition = () => TRANSITIONS[Math.floor(Math.random() * TRANSITIONS.length)];
+
+  const targetDuration = audio_url && audio_duration && audio_duration > 0
+    ? Math.max(audio_duration, 5)
+    : clips.reduce((s, c) => s + (c.duration || 5), 0);
+
+  // monta timeline com loop se preciso
+  const videoClips: Array<Record<string, unknown>> = [];
   let currentTime = 0;
-  const videoClips = clips.map((c) => {
-    const dur = c.duration || 5;
-    const clip = {
-      asset: { type: "video", src: c.url },
+  let clipIndex = 0;
+  while (currentTime < targetDuration) {
+    const src = clips[clipIndex % clips.length];
+    const dur = Math.min(src.duration || 5, targetDuration - currentTime);
+    if (dur < 0.5) break;
+    videoClips.push({
+      asset: { type: "video", src: src.url },
       start: currentTime,
       length: dur,
-      transition: { in: "fade", out: "fade" },
-    };
+      transition: { in: randomTransition(), out: randomTransition() },
+      effect: ["zoomIn", "zoomOut", "slideLeft", "slideRight"][Math.floor(Math.random() * 4)],
+    });
     currentTime += dur;
-    return clip;
-  });
+    clipIndex++;
+  }
 
   const tracks: Array<{ clips: unknown[] }> = [{ clips: videoClips }];
 
-  // audio track (narracao ou musica)
   if (audio_url) {
     tracks.push({
       clips: [{
         asset: { type: "audio", src: audio_url, volume: 1 },
         start: 0,
-        length: currentTime,
+        length: targetDuration,
       }],
     });
   }

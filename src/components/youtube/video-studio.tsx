@@ -261,11 +261,25 @@ export function VideoStudio() {
     setMontarStatus("Enviando pro Shotstack...");
     setVideoFinalUrl(null);
     try {
+      // mede duracao do audio pra sincronizar
+      let audioDuration = 0;
+      if (audioSrc) {
+        try {
+          audioDuration = await new Promise<number>((resolve) => {
+            const a = new Audio(audioSrc);
+            a.addEventListener("loadedmetadata", () => resolve(a.duration || 0));
+            a.addEventListener("error", () => resolve(0));
+            setTimeout(() => resolve(0), 5000);
+          });
+        } catch { audioDuration = 0; }
+      }
+
       const r = await fetch("/api/youtube/montar-video", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clips: videosAnimados.map((v) => ({ url: v.video_url, duration: animForm.duration })),
           audio_url: audioSrc || undefined,
+          audio_duration: audioDuration,
         }),
       });
       if (!r.ok) throw new Error(await r.text());
