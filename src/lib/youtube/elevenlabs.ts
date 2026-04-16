@@ -57,9 +57,10 @@ export async function textToSpeech(opts: {
     },
     body: JSON.stringify({
       text: opts.text,
-      // v2.5 Turbo multilingual = melhor qualidade pra portugues com velocidade boa
-      model_id: opts.model_id || "eleven_turbo_v2_5",
-      language_code: "pt",   // forca portugues no modelo multilingual
+      // eleven_multilingual_v2 (estavel) - maior suporte a portugues
+      // se falhar a voz e premade/ingles, ajuda a forcar melhor pronuncia
+      model_id: opts.model_id || "eleven_multilingual_v2",
+      language_code: "pt-BR",
       voice_settings: {
         stability: opts.stability ?? 0.5,
         similarity_boost: opts.similarity_boost ?? 0.75,
