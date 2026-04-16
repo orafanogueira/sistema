@@ -187,11 +187,15 @@ Quantidade de imagens: ${total}`;
     return NextResponse.json({ prompts, total_prompts: prompts.length });
   }
 
-  // 3) Gera imagens (paralelo com limite 3 concorrentes)
+  // 3) Gera imagens. Concurrency 1 pra Gemini (rate limit 15 RPM), 3 pra fal.ai
   const assets: Array<{ id: string; url: string; ordem: number; prompt: string }> = [];
   const erros: Array<{ ordem: number; erro: string }> = [];
-  const concurrency = 3;
+  const concurrency = modeloImg === "gemini" ? 1 : 3;
   for (let i = 0; i < prompts.length; i += concurrency) {
+    // delay 5s entre batches Gemini pra respeitar rate limit 15 RPM
+    if (i > 0 && modeloImg === "gemini") {
+      await new Promise((r) => setTimeout(r, 5000));
+    }
     const batch = prompts.slice(i, i + concurrency);
     const results = await Promise.all(batch.map(async (p) => {
       let buffer: Buffer; let mime: string;
