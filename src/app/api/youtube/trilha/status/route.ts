@@ -38,13 +38,20 @@ export async function GET(req: Request) {
 
     const statusData = await r.json();
     const payload = statusData.data || statusData;
-    type Clip = { status?: string; audio_url?: string; title?: string; duration?: number };
-    const clips: Clip[] = Array.isArray(payload) ? payload
+    const rawPreview = JSON.stringify(statusData).slice(0, 400);
+
+    type Clip = { status?: string; audio_url?: string; title?: string; duration?: number; metadata?: { duration?: number } };
+    let clips: Clip[] = Array.isArray(payload) ? payload
       : Array.isArray(payload.clips) ? payload.clips
-      : payload.audio_url ? [payload]
+      : payload.audio_url ? [payload as Clip]
       : [];
 
-    if (clips.length === 0) return NextResponse.json({ status: "polling", message: "aguardando clips" });
+    // formato alternativo: payload e um objeto com status+audio_url diretamente
+    if (clips.length === 0 && payload.status && payload.audio_url) {
+      clips = [payload as Clip];
+    }
+
+    if (clips.length === 0) return NextResponse.json({ status: "polling", message: `raw: ${rawPreview}` });
 
     const completos = clips.filter((c) => (c.status === "complete" || c.status === "streaming") && c.audio_url);
     if (completos.length === 0) {

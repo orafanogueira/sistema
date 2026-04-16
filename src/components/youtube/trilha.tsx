@@ -86,13 +86,13 @@ export function Trilha() {
   };
 
   const pollStatus = async (trilhaId: string) => {
-    for (let i = 0; i < 90; i++) {
+    for (let i = 0; i < 120; i++) {
       await new Promise((r) => setTimeout(r, 5000));
-      setResultDebug(`Polling ${i + 1}/90... (~${(i + 1) * 5}s)`);
       try {
         const r = await fetch(`/api/youtube/trilha/status?id=${trilhaId}`);
-        if (!r.ok) continue;
+        if (!r.ok) { setResultDebug(`Poll ${i+1}: HTTP ${r.status}`); continue; }
         const data = await r.json();
+        setResultDebug(`Poll ${i+1} (~${(i+1)*5}s): ${data.status} — ${(data.message || "").slice(0, 200)}`);
         if (data.status === "complete" && data.trilha?.url) {
           setResult({
             url: data.trilha.url,
@@ -113,8 +113,8 @@ export function Trilha() {
         }
       } catch {}
     }
-    setResultDebug("Timeout: Suno demorou mais de 7min. Tente novamente.");
-    toast.error("Timeout — Suno muito lento, tente novamente");
+    setResultDebug("Timeout apos 10min. Recarrega a pagina e clica em 'Carregar historico' — se a musica completou no fundo, aparece la.");
+    toast.error("Timeout — recarrega e confere historico");
   };
 
   const gerar = async () => {
