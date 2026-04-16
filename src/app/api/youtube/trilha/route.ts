@@ -63,36 +63,39 @@ export async function POST(req: Request) {
   const custom = !!(letra);
   const tags = tagsAi;   // tags curtas de genero/mood geradas pela IA
 
-  // tenta modelos em cascata: mais novo -> estavel -> legacy
-  const modelosTentar = ["sonic-v4-5", "sonic-v4", "sonic-v3-5"];
   const tituloOK = (titulo && titulo.trim().length > 0) ? titulo.trim().slice(0, 80) : `Trilha-${Date.now().toString().slice(-6)}`;
-  const makeBody = (mv: string) => custom
-    ? { custom_mode: true, mv, title: tituloOK, tags, prompt: (letra || promptSuno).slice(0, 3000) }
-    : { custom_mode: false, mv, title: tituloOK, tags, gpt_description_prompt: promptSuno.slice(0, 300) };
-  const body = makeBody(modelosTentar[0]);
+  const body: Record<string, unknown> = custom
+    ? {
+        custom_mode: true,
+        mv: "sonic-v4-5",
+        title: tituloOK,
+        tags,
+        prompt: (letra || promptSuno).slice(0, 2500),
+      }
+    : {
+        custom_mode: false,
+        mv: "sonic-v4-5",
+        title: tituloOK,
+        tags,
+        gpt_description_prompt: promptSuno.slice(0, 300),
+      };
 
-  // Tenta cascata de modelos
-  let createRes: Response | null = null;
-  const erros: string[] = [];
-  for (const mv of modelosTentar) {
-    const b = makeBody(mv);
-    const r = await fetch("https://api.aimusicapi.ai/api/v1/sonic/create", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify(b),
-    });
-    if (r.ok) { createRes = r; break; }
-    const txt = await r.text();
-    erros.push(`${mv}->${r.status}:${txt.slice(0, 120)}`);
-  }
-  if (!createRes) {
-    return new NextResponse(`AIMusicAPI todos modelos falharam: ${erros.join(" | ")} | tags: ${tags}`, { status: 500 });
+  const createRes = await fetch("https://api.aimusicapi.ai/api/v1/sonic/create", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!createRes.ok) {
+    const txt = await createRes.text();
+    return new NextResponse(`AIMusicAPI ${createRes.status}: ${txt.slice(0, 300)} | body: ${JSON.stringify(body).slice(0, 200)}`, { status: 500 });
   }
   const created = await createRes.json();
   const taskId: string = created.task_id || created.data?.task_id || "";
   if (!taskId) {
     return new NextResponse(`AIMusicAPI sem task_id. Raw: ${JSON.stringify(created).slice(0, 400)}`, { status: 500 });
   }
+
+  // mapa: Claude prompt_suno -> DB
 
   // 3. Salva no DB com url="pending" (status endpoint vai completar depois)
   const { data: row } = await supabase.from("youtube_trilhas").insert({
