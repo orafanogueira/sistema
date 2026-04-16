@@ -78,9 +78,9 @@ export async function POST(req: Request) {
       const { buffer, chars } = await textToSpeech({
         text: chunks[i],
         voice_id,
-        stability: stability ?? 0.5,
-        similarity_boost: similarity_boost ?? 0.75,
-        style: style ?? 0,
+        stability: stability ?? 0.75,
+        similarity_boost: similarity_boost ?? 0.85,
+        style: style ?? 0.3,
       });
       buffers.push(buffer);
       totalChars += chars;

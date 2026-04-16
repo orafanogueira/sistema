@@ -55,11 +55,12 @@ export function VideoStudio() {
   const [vozLoading, setVozLoading] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(saved.audioUrl || null);
   const [previewPlaying, setPreviewPlaying] = useState<string | null>(null);
-  const [vozForm, setVozForm] = useState((saved.vozForm as { text: string; voice_id: string; stability: number; similarity_boost: number }) || {
+  const [vozForm, setVozForm] = useState((saved.vozForm as { text: string; voice_id: string; stability: number; similarity_boost: number; style?: number }) || {
     text: "",
     voice_id: "",
-    stability: 0.5,
-    similarity_boost: 0.75,
+    stability: 0.75,          // alto = mais natural/previsivel (reduz artifact)
+    similarity_boost: 0.85,   // preserva timbre da voz original
+    style: 0.3,               // leve expressividade (0 = monotona, 1 = dramatica)
   });
 
   const vozSelecionada = voices.find((v) => v.voice_id === vozForm.voice_id);

@@ -66,7 +66,7 @@ export async function POST(req: Request) {
 
   const timeline = {
     timeline: {
-      soundtrack: audio_url ? { src: audio_url, effect: "fadeOut" } : undefined,
+      // SO uma fonte de audio: track (nao soundtrack, senao toca duas vezes = eco)
       tracks,
     },
     output: {
