@@ -120,14 +120,17 @@ export function VideoStudio() {
 
   useEffect(() => {
     fetch("/api/youtube/voz").then((r) => r.json()).then((d) => {
-      const curadasBase = (d.curadas || []) as Voice[];
       const apiVoices = (d.voices || []) as Voice[];
-      // merge: pra cada curada, puxa preview_url da API se existir
-      const curadas = curadasBase.map((c) => {
-        const apiV = apiVoices.find((v) => v.voice_id === c.voice_id);
-        return apiV ? { ...c, preview_url: apiV.preview_url } : c;
-      });
-      const outras = apiVoices.filter((v) => !curadas.find((c) => c.voice_id === v.voice_id));
+      // Free tier: so vozes premade funcionam (evita 402 payment_required)
+      const premade = apiVoices.filter((v) => v.category === "premade" || v.category === "cloned");
+      const curadasBase = (d.curadas || []) as Voice[];
+      const curadas = curadasBase
+        .map((c) => {
+          const apiV = premade.find((v) => v.voice_id === c.voice_id);
+          return apiV ? { ...c, preview_url: apiV.preview_url, category: apiV.category } : null;
+        })
+        .filter(Boolean) as Voice[];
+      const outras = premade.filter((v) => !curadas.find((c) => c.voice_id === v.voice_id));
       const all = [...curadas, ...outras];
       setVoices(all);
       if (all.length > 0 && !vozForm.voice_id) setVozForm((f) => ({ ...f, voice_id: all[0].voice_id }));
