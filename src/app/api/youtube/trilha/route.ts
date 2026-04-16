@@ -150,30 +150,28 @@ export async function GET(req: Request) {
       if (!r.ok) return NextResponse.json({ status: "polling", message: `aimusicapi HTTP ${r.status}` });
       const statusData = await r.json();
       const rawPreview = JSON.stringify(statusData).slice(0, 400);
-      // AIMusicAPI formato: { code, message, task_id, data: { state, clips: [{audio_url, title, duration}] } }
-      const taskData = statusData.data || statusData;
-      const state = taskData.state || taskData.status;
 
-      if (state === "pending" || state === "running") {
-        return NextResponse.json({ status: "polling", message: `state=${state}` });
-      }
-      if (state === "failed") {
-        return NextResponse.json({ status: "error", message: `falhou: ${taskData.error || JSON.stringify(taskData).slice(0, 200)}` });
-      }
-      if (state !== "succeeded" && state !== "complete") {
-        return NextResponse.json({ status: "polling", message: `raw: ${rawPreview}` });
-      }
-
-      // sucesso — extrai clips
-      type Clip = { audio_url?: string; title?: string; duration?: number; id?: string };
-      const clips: Clip[] = Array.isArray(taskData.clips) ? taskData.clips
-        : Array.isArray(taskData.data) ? taskData.data
-        : taskData.audio_url ? [taskData as Clip]
+      // AIMusicAPI formato: data e um ARRAY de clips com state individual
+      type Clip = { clip_id?: string; state?: string; audio_url?: string; title?: string; duration?: number; tags?: string };
+      const clips: Clip[] = Array.isArray(statusData.data) ? statusData.data
+        : Array.isArray(statusData.data?.clips) ? statusData.data.clips
         : [];
 
-      const completos = clips.filter((c) => c.audio_url);
+      if (clips.length === 0) {
+        return NextResponse.json({ status: "polling", message: `sem clips raw: ${rawPreview}` });
+      }
+
+      // se algum falhou definitivamente
+      const falhados = clips.filter((c) => c.state === "failed" || c.state === "error");
+      if (falhados.length === clips.length) {
+        return NextResponse.json({ status: "error", message: `todos clips falharam: ${rawPreview}` });
+      }
+
+      // clips completos tem state=succeeded/complete + audio_url
+      const completos = clips.filter((c) => (c.state === "succeeded" || c.state === "complete" || c.state === "streaming") && c.audio_url);
       if (completos.length === 0) {
-        return NextResponse.json({ status: "error", message: `sucedeu mas sem audio_url. Raw: ${rawPreview}` });
+        const states = clips.map((c) => c.state).join(",");
+        return NextResponse.json({ status: "polling", message: `states=${states}` });
       }
 
       const first = completos[0];
