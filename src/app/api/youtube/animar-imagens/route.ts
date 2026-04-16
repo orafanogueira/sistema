@@ -128,9 +128,8 @@ export async function POST(req: Request) {
   const videos: Array<{ source_img_id: string; video_url: string }> = [];
   const erros: Array<{ source_img_id: string; erro: string }> = [];
 
-  // Veo: sequencial pra nao estourar quota
-  // fal.ai: concurrency 2
-  const conc = isVeo ? 1 : 2;
+  // Concorrencia: 3 paralelo pra ambos (Veo + fal.ai)
+  const conc = 3;
   for (let i = 0; i < imagens.length; i += conc) {
     const batch = imagens.slice(i, i + conc);
     const results = await Promise.all(batch.map(async (img) => {
