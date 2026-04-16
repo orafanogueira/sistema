@@ -54,7 +54,7 @@ export function VideoStudio() {
   const [imgsLoading, setImgsLoading] = useState(false);
   const [imagens, setImagens] = useState<VideoImg[]>([]);
   const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set());
-  const [imgsForm, setImgsForm] = useState({ titulo: "", qtd: 6, tema: "", modelo: "flux-schnell" });
+  const [imgsForm, setImgsForm] = useState({ titulo: "", qtd: 4, tema: "", modelo: "flux-schnell" });
   const [apenasPrompts, setApenasPrompts] = useState<Array<{ ordem: number; descricao_cena: string; prompt_ingles: string }>>([]);
   const [imgErros, setImgErros] = useState<Array<{ ordem: number; erro: string }>>([]);
 
@@ -466,8 +466,8 @@ export function VideoStudio() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Qtd de imagens (2-12)</Label>
-                <Input type="number" min={2} max={12} className="mt-1" value={imgsForm.qtd}
+                <Label>Qtd de imagens (2-4)</Label>
+                <Input type="number" min={2} max={4} className="mt-1" value={imgsForm.qtd}
                   onChange={(e) => setImgsForm({ ...imgsForm, qtd: Number(e.target.value) })} />
               </div>
               <div>

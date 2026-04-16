@@ -158,7 +158,7 @@ export async function POST(req: Request) {
 
   const { titulo, qtd, tema, gerar_imagens, modelo } = await req.json();
   if (!titulo?.trim()) return new NextResponse("titulo obrigatorio", { status: 400 });
-  const total = Math.max(2, Math.min(12, Number(qtd) || 6));
+  const total = Math.max(2, Math.min(4, Number(qtd) || 4));
   const modeloImg: "gemini" | "flux-schnell" | "flux-pro" | "ideogram" = modelo || "flux-schnell";
 
   // 1) Claude gera prompts
