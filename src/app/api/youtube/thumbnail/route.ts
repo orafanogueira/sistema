@@ -39,7 +39,7 @@ export async function POST(req: Request) {
   const { data: m } = await supabase.from("memberships").select("tenant_id").eq("user_id", user.id).maybeSingle();
   if (!m) return new NextResponse("sem tenant", { status: 400 });
 
-  const { titulo, canal_referencia_id, estilo_custom } = await req.json();
+  const { titulo, canal_referencia_id, estilo_custom, texto_destaque, referencia_url } = await req.json();
   if (!titulo?.trim()) return new NextResponse("titulo obrigatorio", { status: 400 });
 
   let padroes = "";
@@ -110,58 +110,75 @@ Retorne APENAS o JSON, sem markdown.`,
   }
 
   // 2. monta prompt final
+  const hasText = texto_destaque?.trim();
+  const textInstruction = hasText
+    ? `IMPORTANT: Render this EXACT text prominently on the image in bold, large, eye-catching font: "${texto_destaque}". The text must be fully readable and positioned for maximum impact. Use contrasting colors (white/yellow text with dark shadow/outline). Text should take up 30-40% of the image area.`
+    : `Do NOT include any text, letters or words in the image.`;
+
   const promptFinal = `Create a high-impact YouTube thumbnail in 16:9 for this video title: "${titulo}".
+
+${textInstruction}
 
 ${padroes ? `Follow this visual pattern/DNA (reverse-engineered from a successful similar channel):
 ${padroes}
 
-Use similar color palette, composition style and emotional mood. But make it unique and representative of the new title.` : ""}
+Use similar color palette, composition style and emotional mood. But make it unique.` : ""}
 
 ${estilo_custom ? `Additional style: ${estilo_custom}` : ""}
 
 Style requirements:
 - Photorealistic cinematic look
-- High contrast, saturated colors that pop
-- Clear focal point in center or rule-of-thirds
+- High contrast, saturated colors that pop on YouTube
+- Clear focal point, rule-of-thirds composition
 - Convey strong emotion (curiosity, shock, intrigue)
-- NO text/letters/words in the image (text will be added later)
-- Professional YouTube thumbnail aesthetic (like MrBeast, Casimiro, Dotti style)
-- 1920x1080 quality`;
+- Professional YouTube thumbnail aesthetic (MrBeast, Casimiro, Dotti style)
+- 1280x720 quality, optimized for YouTube grid`;
 
-  // 3. Gera thumb via fal.ai Flux (fallback: Gemini)
+  // 3. Gera thumb via fal.ai — Ideogram v2 (melhor pra texto) ou Flux
   let buffer: Buffer;
   let mime: string;
+  const falKey = process.env.FAL_KEY;
+  if (!falKey) return new NextResponse("FAL_KEY ausente no Vercel", { status: 500 });
+
   try {
-    const falKey = process.env.FAL_KEY;
-    if (!falKey) throw new Error("FAL_KEY ausente");
-    const falRes = await fetch("https://fal.run/fal-ai/flux/schnell", {
+    // Ideogram v2 pra thumbs com texto, Flux Pro pra thumbs sem texto
+    const endpoint = hasText ? "fal-ai/ideogram/v2" : "fal-ai/flux-pro/v1.1";
+
+    const falBody: Record<string, unknown> = {
+      prompt: promptFinal,
+      image_size: "landscape_16_9",
+      num_images: 1,
+    };
+
+    // Ideogram-specific configs
+    if (hasText) {
+      falBody.style = "REALISTIC";
+      falBody.magic_prompt = true;
+    } else {
+      falBody.num_inference_steps = 28;
+      falBody.enable_safety_checker = false;
+    }
+
+    // Imagem de referencia (style reference)
+    if (referencia_url) {
+      falBody.image_url = referencia_url;
+      falBody.strength = 0.35;
+    }
+
+    const falRes = await fetch(`https://fal.run/${endpoint}`, {
       method: "POST",
       headers: { "Authorization": `Key ${falKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        prompt: promptFinal,
-        image_size: "landscape_16_9",
-        num_inference_steps: 4,
-        num_images: 1,
-        enable_safety_checker: false,
-      }),
+      body: JSON.stringify(falBody),
     });
-    if (!falRes.ok) throw new Error(`fal ${falRes.status}: ${(await falRes.text()).slice(0, 200)}`);
+    if (!falRes.ok) throw new Error(`fal ${falRes.status}: ${(await falRes.text()).slice(0, 250)}`);
     const falData = await falRes.json();
     const imgUrl = falData.images?.[0]?.url;
-    if (!imgUrl) throw new Error("fal sem url");
+    if (!imgUrl) throw new Error("fal sem url na resposta");
     const imgRes = await fetch(imgUrl);
     buffer = Buffer.from(await imgRes.arrayBuffer());
     mime = imgRes.headers.get("content-type") || "image/png";
-  } catch (falErr) {
-    // fallback Gemini
-    try {
-      const img = await geminiImage(promptFinal);
-      if (!img) return new NextResponse("Nenhum gerador disponivel", { status: 500 });
-      buffer = Buffer.from(img.data, "base64");
-      mime = img.mime;
-    } catch (e: unknown) {
-      return new NextResponse(`fal: ${falErr instanceof Error ? falErr.message : "?"} | Gemini: ${e instanceof Error ? e.message : "?"}`, { status: 500 });
-    }
+  } catch (e: unknown) {
+    return new NextResponse(`Thumb: ${e instanceof Error ? e.message : "erro"}`, { status: 500 });
   }
 
   const ext = mime.split("/")[1] || "png";

@@ -6,7 +6,7 @@ import { Input, Label, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Loader2, Mic, Scissors, Image as ImageIcon, Sparkles, Copy, Check,
-  Download, Play, Wand2,
+  Download, Play, Wand2, Upload,
 } from "lucide-react";
 import { toast } from "@/components/ui/toaster";
 import { removePausesFromAudio } from "@/lib/youtube/remove-pauses";
@@ -67,7 +67,8 @@ export function VideoStudio() {
   const [thumbLoading, setThumbLoading] = useState(false);
   const [thumb, setThumb] = useState<ThumbRes | null>(null);
   const [canais, setCanais] = useState<Canal[]>([]);
-  const [thumbForm, setThumbForm] = useState({ titulo: "", canal_referencia_id: "", estilo_custom: "" });
+  const [thumbForm, setThumbForm] = useState({ titulo: "", canal_referencia_id: "", estilo_custom: "", texto_destaque: "", referencia_url: "" });
+  const [refUploading, setRefUploading] = useState(false);
 
   useEffect(() => {
     fetch("/api/youtube/voz").then((r) => r.json()).then((d) => {
@@ -244,6 +245,8 @@ export function VideoStudio() {
           titulo: thumbForm.titulo,
           canal_referencia_id: thumbForm.canal_referencia_id || null,
           estilo_custom: thumbForm.estilo_custom || null,
+          texto_destaque: thumbForm.texto_destaque || null,
+          referencia_url: thumbForm.referencia_url || null,
         }),
       });
       if (!r.ok) throw new Error(await r.text());
@@ -594,8 +597,52 @@ export function VideoStudio() {
             </div>
 
             <div>
+              <Label>Texto de destaque (aparece NA thumb)</Label>
+              <Input className="mt-1" placeholder="Ex: ELE FEZ R$40 MIL EM 30 DIAS"
+                value={thumbForm.texto_destaque} onChange={(e) => setThumbForm({ ...thumbForm, texto_destaque: e.target.value })} />
+              <div className="text-[10px] text-muted-foreground mt-1">
+                {thumbForm.texto_destaque ? "Ideogram v2 vai renderizar esse texto na imagem (~$0.08)" : "Sem texto = Flux Pro gera imagem pura (~$0.05)"}
+              </div>
+            </div>
+
+            <div>
+              <Label>Imagem de referência (opcional)</Label>
+              <div className="flex gap-2 mt-1">
+                <Input placeholder="URL da imagem ou upload abaixo"
+                  value={thumbForm.referencia_url}
+                  onChange={(e) => setThumbForm({ ...thumbForm, referencia_url: e.target.value })} />
+                <label className="flex items-center gap-1 px-3 border border-border rounded-md cursor-pointer hover:border-cyan/50 text-xs whitespace-nowrap">
+                  <Upload className="h-3 w-3" /> Upload
+                  <input type="file" className="hidden" accept="image/*" onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setRefUploading(true);
+                    try {
+                      const fd = new FormData();
+                      fd.append("file", file);
+                      const r = await fetch("/api/social/upload", { method: "POST", body: fd });
+                      if (!r.ok) throw new Error(await r.text());
+                      const data = await r.json();
+                      setThumbForm((f) => ({ ...f, referencia_url: data.url }));
+                      toast.success("Referência carregada");
+                    } catch { toast.error("Erro no upload"); }
+                    finally { setRefUploading(false); }
+                  }} />
+                </label>
+              </div>
+              {refUploading && <div className="text-xs text-muted-foreground mt-1"><Loader2 className="h-3 w-3 inline animate-spin" /> Carregando...</div>}
+              {thumbForm.referencia_url && (
+                <div className="mt-2 flex items-center gap-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={thumbForm.referencia_url} alt="" className="h-16 rounded border border-border" />
+                  <Button size="sm" variant="ghost" onClick={() => setThumbForm({ ...thumbForm, referencia_url: "" })}>Remover</Button>
+                </div>
+              )}
+            </div>
+
+            <div>
               <Label>Estilo adicional (opcional)</Label>
-              <Input className="mt-1" placeholder="Ex: vermelho dominante, rosto chocado"
+              <Input className="mt-1" placeholder="Ex: cores vibrantes, fundo escuro, expressão de surpresa"
                 value={thumbForm.estilo_custom} onChange={(e) => setThumbForm({ ...thumbForm, estilo_custom: e.target.value })} />
             </div>
 
