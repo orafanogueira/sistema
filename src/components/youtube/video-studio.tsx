@@ -54,7 +54,7 @@ export function VideoStudio() {
   const [imgsLoading, setImgsLoading] = useState(false);
   const [imagens, setImagens] = useState<VideoImg[]>([]);
   const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set());
-  const [imgsForm, setImgsForm] = useState({ titulo: "", qtd: 12, tema: "", modelo: "gemini" });
+  const [imgsForm, setImgsForm] = useState({ titulo: "", qtd: 12, tema: "", modelo: "flux-schnell" });
   const [apenasPrompts, setApenasPrompts] = useState<Array<{ ordem: number; descricao_cena: string; prompt_ingles: string }>>([]);
   const [imgErros, setImgErros] = useState<Array<{ ordem: number; erro: string }>>([]);
 
@@ -412,10 +412,10 @@ export function VideoStudio() {
                 <Label>Modelo de imagem</Label>
                 <select className="mt-1 flex h-10 w-full rounded-md border border-input bg-background/40 px-3 text-sm"
                   value={imgsForm.modelo} onChange={(e) => setImgsForm({ ...imgsForm, modelo: e.target.value })}>
-                  <option value="gemini">Gemini Nano Banana (recomendado)</option>
-                  <option value="flux-schnell">Flux Schnell (precisa FAL_KEY)</option>
-                  <option value="flux-pro">Flux Pro (precisa FAL_KEY)</option>
-                  <option value="ideogram">Ideogram v2 (precisa FAL_KEY)</option>
+                  <option value="flux-schnell">Flux Schnell (rapido · ~$0.003/img)</option>
+                  <option value="flux-pro">Flux Pro (qualidade · ~$0.05/img)</option>
+                  <option value="ideogram">Ideogram v2 (texto na img · ~$0.08/img)</option>
+                  <option value="gemini">Gemini Nano Banana (cota diaria)</option>
                 </select>
               </div>
             </div>

@@ -128,15 +128,46 @@ Style requirements:
 - Professional YouTube thumbnail aesthetic (like MrBeast, Casimiro, Dotti style)
 - 1920x1080 quality`;
 
-  // 3. Gemini cria thumb
-  const img = await geminiImage(promptFinal);
-  if (!img) return new NextResponse("Gemini nao gerou imagem", { status: 500 });
+  // 3. Gera thumb via fal.ai Flux (fallback: Gemini)
+  let buffer: Buffer;
+  let mime: string;
+  try {
+    const falKey = process.env.FAL_KEY;
+    if (!falKey) throw new Error("FAL_KEY ausente");
+    const falRes = await fetch("https://fal.run/fal-ai/flux/schnell", {
+      method: "POST",
+      headers: { "Authorization": `Key ${falKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt: promptFinal,
+        image_size: "landscape_16_9",
+        num_inference_steps: 4,
+        num_images: 1,
+        enable_safety_checker: false,
+      }),
+    });
+    if (!falRes.ok) throw new Error(`fal ${falRes.status}: ${(await falRes.text()).slice(0, 200)}`);
+    const falData = await falRes.json();
+    const imgUrl = falData.images?.[0]?.url;
+    if (!imgUrl) throw new Error("fal sem url");
+    const imgRes = await fetch(imgUrl);
+    buffer = Buffer.from(await imgRes.arrayBuffer());
+    mime = imgRes.headers.get("content-type") || "image/png";
+  } catch (falErr) {
+    // fallback Gemini
+    try {
+      const img = await geminiImage(promptFinal);
+      if (!img) return new NextResponse("Nenhum gerador disponivel", { status: 500 });
+      buffer = Buffer.from(img.data, "base64");
+      mime = img.mime;
+    } catch (e: unknown) {
+      return new NextResponse(`fal: ${falErr instanceof Error ? falErr.message : "?"} | Gemini: ${e instanceof Error ? e.message : "?"}`, { status: 500 });
+    }
+  }
 
-  const ext = img.mime.split("/")[1] || "png";
+  const ext = mime.split("/")[1] || "png";
   const path = `${m.tenant_id}/yt-thumb-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${ext}`;
-  const buffer = Buffer.from(img.data, "base64");
   const { error: upErr } = await supabase.storage.from("social-media").upload(path, buffer, {
-    contentType: img.mime, upsert: false,
+    contentType: mime, upsert: false,
   });
   if (upErr) return new NextResponse(`Storage: ${upErr.message}`, { status: 400 });
   const { data: pub } = supabase.storage.from("social-media").getPublicUrl(path);
