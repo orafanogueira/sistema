@@ -11,7 +11,7 @@ export function ConvidarMembroButton() {
   const [loading, setLoading] = useState(false);
   const [link, setLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [form, setForm] = useState({ email: "", role: "readonly", team: "" });
+  const [form, setForm] = useState({ email: "", role: "readonly", teams: [] as string[] });
 
   const save = async () => {
     if (!form.email.trim()) return toast.error("Email obrigatorio");
@@ -21,7 +21,7 @@ export function ConvidarMembroButton() {
       const r = await fetch("/api/team-invites", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: form.email, role: form.role, team: form.team || null }),
+        body: JSON.stringify({ email: form.email, role: form.role, team: form.teams.join(",") || null }),
       });
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
@@ -46,7 +46,7 @@ export function ConvidarMembroButton() {
     <>
       <Button size="sm" onClick={() => setOpen(true)}><UserPlus className="h-4 w-4" /> Convidar</Button>
 
-      <Dialog.Root open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setLink(null); setForm({ email: "", role: "readonly", team: "" }); } }}>
+      <Dialog.Root open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setLink(null); setForm({ email: "", role: "readonly", teams: [] }); } }}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" />
           <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(480px,94vw)] bg-card border border-border rounded-xl p-6 z-50">
@@ -71,15 +71,28 @@ export function ConvidarMembroButton() {
                 </select>
               </div>
               <div>
-                <Label>Time (opcional)</Label>
-                <select className="mt-1 flex h-10 w-full rounded-md border border-input bg-background/40 px-3 text-sm"
-                  value={form.team} onChange={(e) => setForm({ ...form, team: e.target.value })}>
-                  <option value="">Sem time especifico</option>
-                  <option value="trafego">Trafego</option>
-                  <option value="social">Social</option>
-                  <option value="video">Video</option>
-                  <option value="comercial">Comercial</option>
-                </select>
+                <Label>Departamentos (selecione 1 ou mais)</Label>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  {[
+                    { value: "trafego", label: "Tráfego Pago" },
+                    { value: "social", label: "Social Media" },
+                    { value: "comercial", label: "Comercial" },
+                    { value: "youtube", label: "YouTube" },
+                    { value: "video", label: "Video Maker" },
+                    { value: "infoproduto", label: "Infoproduto" },
+                  ].map((t) => (
+                    <label key={t.value} className={`flex items-center gap-2 text-sm cursor-pointer border rounded-md px-3 py-2 transition-colors ${form.teams.includes(t.value) ? "border-cyan bg-cyan/10 text-cyan" : "border-border text-muted-foreground hover:border-cyan/50"}`}>
+                      <input type="checkbox" checked={form.teams.includes(t.value)}
+                        onChange={(e) => {
+                          const teams = e.target.checked
+                            ? [...form.teams, t.value]
+                            : form.teams.filter((x) => x !== t.value);
+                          setForm({ ...form, teams });
+                        }} />
+                      {t.label}
+                    </label>
+                  ))}
+                </div>
               </div>
 
               {link ? (
