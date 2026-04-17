@@ -14,8 +14,14 @@ REGRAS DE FORMATO (OBRIGATORIO):
 - Paragrafos curtos (2-4 linhas cada) separados por quebra de linha dupla
 - As calls de inscricao/comentario devem estar EMBUTIDAS no texto de forma natural
 
+REGRAS DE IDIOMA E ACENTUACAO (OBRIGATORIO):
+- TODOS os acentos do portugues brasileiro DEVEM estar corretos: não (NUNCA "nao"), manhã (NUNCA "manha"), aí (NUNCA "ai"), você (NUNCA "voce"), é (NUNCA "e" quando verbo ser), até (NUNCA "ate"), já (NUNCA "ja"), só (NUNCA "so"), também (NUNCA "tambem"), está (NUNCA "esta" quando verbo), há (NUNCA "ha" quando verbo haver), além (NUNCA "alem"), após (NUNCA "apos"), através (NUNCA "atraves"), incluído (NUNCA "incluido"), saúde (NUNCA "saude"), família (NUNCA "familia")
+- Caracteres obrigatórios: á é í ó ú â ê ô ã õ ç à
+- Se o idioma do vídeo for outro (inglês, espanhol), use acentuação correta desse idioma
+- NUNCA gere texto sem acentos — isso quebra a narração por IA
+
 REGRAS DE OTIMIZACAO PARA NARRACAO IA (CRITICO):
-- Pontuacao ABUNDANTE: virgulas, pontos, interrogacoes, exclamacoes — IA usa pra respirar
+- Pontuação ABUNDANTE: vírgulas, pontos, interrogações, exclamações — IA usa pra respirar
 - Frases CURTAS: 8 a 12 palavras por frase (max 15). Se precisar uma ideia longa, quebra em 2-3 frases.
 - NADA de abreviacoes — escrever sempre por EXTENSO:
   * R$40 mil -> "quarenta mil reais"
