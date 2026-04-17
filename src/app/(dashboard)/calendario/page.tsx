@@ -3,17 +3,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 
-export default async function CalendarioPage() {
+export const dynamic = "force-dynamic";
+
+export default async function CalendarioPage({ searchParams }: { searchParams: Promise<{ cliente?: string }> }) {
+  const { cliente: clienteId } = await searchParams;
   const supabase = await createClient();
   const today = new Date();
   const start = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
   const end = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString();
 
-  const { data: posts } = await supabase
-    .from("social_posts")
+  let q = supabase.from("social_posts")
     .select("id,title,format,pillar,status,scheduled_for,published_at,cliente:clientes(nome)")
     .or(`scheduled_for.gte.${start},published_at.gte.${start}`)
     .lte("scheduled_for", end);
+  if (clienteId) q = q.eq("cliente_id", clienteId);
+  const { data: posts } = await q;
 
   // monta grade do mes
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();

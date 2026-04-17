@@ -8,6 +8,8 @@ import { formatDate, formatInt } from "@/lib/utils";
 import { NovoPostButton } from "@/components/social/novo-post";
 import { EditorVideoButton } from "@/components/social/editor-video";
 import { ClientSwitcher } from "@/components/social/client-switcher";
+import { GerarCalendarioButton } from "@/components/social/gerar-calendario";
+import { ConectarRedesButton } from "@/components/social/conectar-redes";
 
 export const dynamic = "force-dynamic";
 
@@ -71,8 +73,9 @@ export default async function SocialPage({ searchParams }: { searchParams: Promi
             {clienteNome ? `Posts de ${clienteNome}` : "Todos os clientes"}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Link href="/calendario"><Button variant="outline">Calendario</Button></Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/calendario"><Button variant="outline">Calendário</Button></Link>
+          <GerarCalendarioButton clientes={(clientes || []) as Array<{ id: string; nome: string }>} />
           <EditorVideoButton />
           <NovoPostButton clientes={clientes || []} />
         </div>
@@ -89,9 +92,7 @@ export default async function SocialPage({ searchParams }: { searchParams: Promi
               <CardTitle className="text-sm flex items-center gap-2">
                 <Plug className="h-4 w-4" /> Redes de {clienteNome}
               </CardTitle>
-              <Link href={`/integracoes?cliente=${clienteId}`}>
-                <Button size="sm" variant="outline">Gerenciar conexoes</Button>
-              </Link>
+              <ConectarRedesButton clienteId={clienteId} clienteNome={clienteNome || ""} />
             </div>
           </CardHeader>
           <CardContent>
