@@ -40,7 +40,7 @@ REGRAS DE OTIMIZACAO PARA NARRACAO IA (CRITICO):
 - PALAVRAS ESTRANGEIRAS em portugues quando possivel: "YouTube" ok, mas prefira "canal" a "channel"
 - TRAVESSAO com espaco: " — " (ajuda pausas)
 - Evite numeros como "vinte e tres" no meio de frase — soa quebrado. Prefira arredondar: "uns vinte e tantos"
-- REPETE a palavra-chave principal 2-3 vezes no vídeo (SEO de narração)`;
+- REPETE a palavra-chave principal 2-3 vezes no vídeo (SEO de narração)
 
 REGRAS DE CONTEUDO:
 
