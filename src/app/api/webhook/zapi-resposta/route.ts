@@ -83,12 +83,15 @@ export async function POST(req: Request) {
   });
 
   // LOG DE DEBUG: salva tudo que Z-API manda (pra diagnosticar)
-  await supabase.from("disparo_conversas").insert({
-    tenant_id: "00000000-0000-0000-0000-000000000000",
-    telefone: phone || "sem_phone",
-    role: "system",
-    content: JSON.stringify({ phone, text, isGroup, fromMe, raw_keys: Object.keys(body) }).slice(0, 500),
-  }).then(() => {}).catch(() => {});
+  try {
+    await supabase.from("disparo_conversas").insert({
+      tenant_id: "00000000-0000-0000-0000-000000000000",
+      telefone: phone || "sem_phone",
+      role: "system",
+      content: JSON.stringify({ phone, text, isGroup, fromMe, raw_keys: Object.keys(body) }).slice(0, 500),
+    });
+  } catch {}
+
 
   // ignora: grupos, mensagens próprias, sem texto
   if (isGroup || fromMe || !text || !phone) {
