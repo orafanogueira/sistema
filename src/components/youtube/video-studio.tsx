@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/components/ui/toaster";
 import { removePausesFromAudio } from "@/lib/youtube/remove-pauses";
+import { PostarYouTubeButton } from "@/components/youtube/conectar-youtube";
 
 interface Voice { voice_id: string; name: string; descricao?: string; labels?: Record<string, string>; preview_url?: string; category?: string }
 interface VideoImg { id: string; url: string; ordem: number; prompt: string }
@@ -810,6 +811,7 @@ export function VideoStudio() {
                     <a href={videoFinalUrl} download="video-final.mp4">
                       <Button className="w-full"><Download className="h-4 w-4" /> Baixar MP4</Button>
                     </a>
+                    <PostarYouTubeButton videoUrl={videoFinalUrl} />
                     <Button variant="outline" className="w-full" onClick={() => setStep(6)}>Proximo →</Button>
                   </div>
                 )}
