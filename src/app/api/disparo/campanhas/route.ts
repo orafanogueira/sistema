@@ -50,10 +50,10 @@ export async function POST(req: Request) {
 
   // se tem lista, gera mensagens pra cada lead
   if (lista_id) {
+    // busca TODOS os leads da lista (sem filtro de status)
     const { data: leads } = await supabase.from("prospeccao_leads")
-      .select("id,nome,telefone,whatsapp,segmento,has_website,rating")
-      .eq("lista_id", lista_id)
-      .in("status", ["novo", "contato_feito"]);
+      .select("id,nome,telefone,whatsapp,segmento,has_website,rating,status")
+      .eq("lista_id", lista_id);
 
     // pega números selecionados pra rotação
     let numerosQuery = supabase.from("whatsapp_numeros").select("id").eq("is_active", true);
@@ -104,8 +104,15 @@ export async function POST(req: Request) {
       }).eq("id", campanha.id);
     }
 
-    return NextResponse.json({ campanha, total_mensagens: msgs.length });
+    return NextResponse.json({
+      campanha, total_mensagens: msgs.length,
+      debug: {
+        leads_na_lista: (leads || []).length,
+        leads_com_telefone: (leads || []).filter((l) => l.whatsapp || l.telefone).length,
+        numeros_selecionados: (numeros || []).length,
+      },
+    });
   }
 
-  return NextResponse.json({ campanha, total_mensagens: 0 });
+  return NextResponse.json({ campanha, total_mensagens: 0, debug: { leads_na_lista: 0 } });
 }
