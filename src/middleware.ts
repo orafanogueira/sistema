@@ -35,6 +35,7 @@ export async function middleware(request: NextRequest) {
     path === "/" ||
     path.startsWith("/login") ||
     path.startsWith("/signup") ||
+    path.startsWith("/convite") ||
     path.startsWith("/api/webhook") ||
     path.startsWith("/api/cron");
 
