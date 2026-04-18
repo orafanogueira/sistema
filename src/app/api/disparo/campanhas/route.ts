@@ -64,7 +64,13 @@ export async function POST(req: Request) {
 
   // se tem lista, gera mensagens pra cada lead
   if (lista_id) {
-    // busca TODOS os leads da lista (sem filtro de status)
+    // busca telefones que JÁ receberam mensagem (qualquer campanha, qualquer status)
+    const { data: jaEnviados } = await supabase.from("disparo_mensagens")
+      .select("telefone_destino")
+      .eq("tenant_id", m.tenant_id);
+    const telefonesJaEnviados = new Set((jaEnviados || []).map((d) => d.telefone_destino?.replace(/\D/g, "")));
+
+    // busca TODOS os leads da lista
     const { data: leads } = await supabase.from("prospeccao_leads")
       .select("id,nome,telefone,whatsapp,segmento,has_website,rating,status")
       .eq("lista_id", lista_id);
@@ -86,9 +92,18 @@ export async function POST(req: Request) {
 
     const msgs = [];
     let numIdx = 0;
+    let duplicados = 0;
     for (const lead of (leads || [])) {
       const tel = lead.whatsapp || lead.telefone;
       if (!tel) continue;
+
+      // pula se já enviamos pra esse número antes
+      const telLimpo = tel.replace(/\D/g, "");
+      if (telefonesJaEnviados.has(telLimpo)) {
+        duplicados++;
+        continue;
+      }
+      telefonesJaEnviados.add(telLimpo); // marca pra não duplicar dentro da mesma campanha
 
       // gera copy personalizado com IA
       let texto = mensagem_padrao || "";
@@ -136,6 +151,7 @@ export async function POST(req: Request) {
         leads_na_lista: (leads || []).length,
         leads_com_telefone: (leads || []).filter((l) => l.whatsapp || l.telefone).length,
         numeros_selecionados: (numeros || []).length,
+        duplicados_pulados: duplicados,
       },
     });
   }
