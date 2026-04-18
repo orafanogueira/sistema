@@ -71,14 +71,20 @@ const NAV = [
   ]},
 ];
 
-export function Sidebar({ tenantName, activeProducts = [], isMaster = false }: { tenantName: string; activeProducts?: string[]; isMaster?: boolean }) {
+export function Sidebar({ tenantName, activeProducts = [], isMaster = false, userRole = "owner" }: { tenantName: string; activeProducts?: string[]; isMaster?: boolean; userRole?: string }) {
   const pathname = usePathname();
+  const isAdminUser = userRole === "owner" || userRole === "admin" || isMaster;
 
-  // filtra items por produto ativo
+  // rotas que editor/readonly NAO veem
+  const adminOnlyPaths = ["/financeiro", "/cobrancas", "/contratos", "/assinaturas", "/configuracoes", "/dashboard"];
+
+  // filtra items por produto ativo + role
   const filteredNav = NAV
     .map((sec) => ({
       ...sec,
       items: sec.items.filter((it) => {
+        // editor/readonly nao ve financeiro/dashboard/configuracoes
+        if (!isAdminUser && adminOnlyPaths.some((p) => it.href === p || it.href.startsWith(p + "/"))) return false;
         const required = productsRequiredFor(it.href);
         if (isMaster) return true;
         if (!required) return true;

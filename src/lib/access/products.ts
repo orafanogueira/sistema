@@ -6,8 +6,14 @@
 
 // rotas "compartilhadas" que todo tenant com qualquer produto pode ver
 export const SHARED_ROUTES = [
-  "/perfil", "/planos", "/configuracoes", "/alertas", "/convite",
+  "/perfil", "/planos", "/alertas", "/convite",
   "/onboarding", "/onboarding-progress",
+];
+
+// rotas restritas a owner/admin (editor e readonly NAO veem)
+export const ADMIN_ONLY_ROUTES = [
+  "/financeiro", "/cobrancas", "/contratos", "/assinaturas",
+  "/configuracoes", "/dashboard",
 ];
 
 // mapeamento: prefixo de rota -> produtos que liberam ela
@@ -74,4 +80,9 @@ export function hasAnyProduct(activeProducts: string[], requiredProducts: string
   if (isMaster) return true;
   if (!requiredProducts) return true;
   return requiredProducts.some((p) => activeProducts.includes(p));
+}
+
+/** Verifica se rota é admin-only (financeiro, configuracoes, dashboard). */
+export function isAdminOnlyRoute(pathname: string): boolean {
+  return ADMIN_ONLY_ROUTES.some((r) => pathname === r || pathname.startsWith(r + "/"));
 }
