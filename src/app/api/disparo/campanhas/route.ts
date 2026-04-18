@@ -105,7 +105,7 @@ export async function POST(req: Request) {
       telefonesJaEnviados.add(telLimpo); // marca pra não duplicar dentro da mesma campanha
 
       // gera copy com 5 VARIAÇÕES (A/B testing) — distribui 1 por lead
-      const variacaoIdx = msgs.length % 5;
+      const variacaoIdx: number = msgs.length % 5;
       const VARIACOES = [
         "Abordagem direta com resultado numérico",
         "Pergunta provocativa sobre o negócio",
