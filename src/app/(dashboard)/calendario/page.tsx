@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
+import { ClientSwitcher } from "@/components/social/client-switcher";
+import { GerarCalendarioButton } from "@/components/social/gerar-calendario";
 
 export const dynamic = "force-dynamic";
 
@@ -12,12 +13,17 @@ export default async function CalendarioPage({ searchParams }: { searchParams: P
   const start = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
   const end = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString();
 
+  const { data: clientes } = await supabase.from("clientes")
+    .select("id,nome,slug,vertical,servicos").order("nome");
+
   let q = supabase.from("social_posts")
     .select("id,title,format,pillar,status,scheduled_for,published_at,cliente:clientes(nome)")
     .or(`scheduled_for.gte.${start},published_at.gte.${start}`)
     .lte("scheduled_for", end);
   if (clienteId) q = q.eq("cliente_id", clienteId);
   const { data: posts } = await q;
+
+  const clienteNome = clienteId ? clientes?.find((c) => c.id === clienteId)?.nome : null;
 
   // monta grade do mes
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
@@ -38,10 +44,17 @@ export default async function CalendarioPage({ searchParams }: { searchParams: P
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-black tracking-tight">Calendario Editorial</h1>
-        <p className="text-muted-foreground capitalize">{monthLabel}</p>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight">Calendário Editorial</h1>
+          <p className="text-muted-foreground capitalize">
+            {monthLabel} {clienteNome ? `— ${clienteNome}` : "— Todos os clientes"}
+          </p>
+        </div>
+        <GerarCalendarioButton clientes={(clientes || []) as Array<{ id: string; nome: string }>} />
       </div>
+
+      <ClientSwitcher clientes={(clientes || []) as Array<{ id: string; nome: string; slug: string; vertical: string; servicos: string[] }>} />
 
       <Card>
         <CardContent className="p-4">
