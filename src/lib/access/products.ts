@@ -52,6 +52,7 @@ export const ROUTE_PRODUCTS: Record<string, string[]> = {
 
   // Comercial
   "/prospeccao": ["comercial", "completo"],
+  "/disparo": ["comercial", "completo"],
 
   // YouTube
   "/youtube": ["youtube", "completo"],
