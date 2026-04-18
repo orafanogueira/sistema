@@ -18,7 +18,7 @@ export function DisparoUI({ numeros: initialNumeros, campanhas: initialCampanhas
   const [campanhas, setCampanhas] = useState(initialCampanhas);
   const [tab, setTab] = useState<"numeros" | "campanhas">("numeros");
   const [loading, setLoading] = useState(false);
-  const [disparando, setDisparando] = useState(false);
+  const [disparandoId, setDisparandoId] = useState<string | null>(null);
 
   // form numero
   const [numForm, setNumForm] = useState({ nome: "", telefone: "", zapi_instance_id: "", zapi_token: "" });
@@ -83,7 +83,7 @@ export function DisparoUI({ numeros: initialNumeros, campanhas: initialCampanhas
   };
 
   const disparar = async (campanhaId: string) => {
-    setDisparando(true);
+    setDisparandoId(campanhaId);
     try {
       const r = await fetch("/api/disparo/enviar", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -95,7 +95,7 @@ export function DisparoUI({ numeros: initialNumeros, campanhas: initialCampanhas
       window.location.reload();
     } catch (e: unknown) {
       toast.error("Erro disparo", e instanceof Error ? e.message : "tente novamente");
-    } finally { setDisparando(false); }
+    } finally { setDisparandoId(null); }
   };
 
   return (
@@ -231,10 +231,13 @@ export function DisparoUI({ numeros: initialNumeros, campanhas: initialCampanhas
                         <Badge variant={c.status === "concluida" ? "success" : c.status === "ativa" ? "warning" : "secondary"}>
                           {c.status}
                         </Badge>
-                        {c.status !== "concluida" && (
-                          <Button size="sm" onClick={() => disparar(c.id)} disabled={disparando}>
-                            {disparando ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Play className="h-3 w-3" /> Disparar</>}
+                        {c.status !== "concluida" && c.total_mensagens > 0 && (
+                          <Button size="sm" onClick={() => disparar(c.id)} disabled={disparandoId !== null}>
+                            {disparandoId === c.id ? <><Loader2 className="h-3 w-3 animate-spin" /> Enviando...</> : <><Play className="h-3 w-3" /> Disparar</>}
                           </Button>
+                        )}
+                        {c.total_mensagens === 0 && (
+                          <span className="text-[10px] text-muted-foreground">Sem mensagens</span>
                         )}
                       </div>
                     </div>

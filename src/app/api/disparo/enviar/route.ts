@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     .select("*")
     .eq("campanha_id", campanha_id)
     .eq("status", "pendente")
-    .order("position").limit(50);
+    .order("position").limit(10);
 
   if (!mensagens || mensagens.length === 0) {
     return NextResponse.json({ enviadas: 0, message: "Nenhuma mensagem pendente" });
