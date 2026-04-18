@@ -31,7 +31,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (!allowed) redirect("/planos");
 
   // Financeiro/dashboard: só owner OU quem tem can_see_financeiro habilitado
-  const canSeeFinanceiro = userRole === "owner" || !!(membership as Record<string, unknown>)?.can_see_financeiro;
+  // query separada pra garantir leitura do campo
+  let canSeeFinanceiro = userRole === "owner";
+  if (!canSeeFinanceiro) {
+    const { data: mCheck } = await supabase.from("memberships")
+      .select("can_see_financeiro").eq("user_id", user.id).maybeSingle();
+    canSeeFinanceiro = mCheck?.can_see_financeiro === true;
+  }
   if (isAdminOnlyRoute(pathname) && !canSeeFinanceiro) {
     redirect("/social");
   }
