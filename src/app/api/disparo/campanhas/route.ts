@@ -32,7 +32,7 @@ export async function POST(req: Request) {
   const { data: m } = await supabase.from("memberships").select("tenant_id").eq("user_id", user.id).maybeSingle();
   if (!m) return new NextResponse("sem tenant", { status: 400 });
 
-  const { nome, lista_id, prompt_template, mensagem_padrao, intervalo_min_seg, intervalo_max_seg } = await req.json();
+  const { nome, lista_id, prompt_template, mensagem_padrao, intervalo_min_seg, intervalo_max_seg, numero_ids } = await req.json();
   if (!nome) return new NextResponse("nome obrigatório", { status: 400 });
 
   // cria campanha
@@ -55,14 +55,18 @@ export async function POST(req: Request) {
       .eq("lista_id", lista_id)
       .in("status", ["novo", "contato_feito"]);
 
-    // pega números disponíveis pra rotação
-    const { data: numeros } = await supabase.from("whatsapp_numeros")
-      .select("id").eq("is_active", true);
+    // pega números selecionados pra rotação
+    let numerosQuery = supabase.from("whatsapp_numeros").select("id").eq("is_active", true);
+    if (Array.isArray(numero_ids) && numero_ids.length > 0) {
+      numerosQuery = numerosQuery.in("id", numero_ids);
+    }
+    const { data: numeros } = await numerosQuery;
 
     const msgs = [];
     let numIdx = 0;
     for (const lead of (leads || [])) {
-      if (!lead.whatsapp && !lead.telefone) continue;
+      const tel = lead.whatsapp || lead.telefone;
+      if (!tel) continue;
 
       // gera copy personalizado com IA
       let texto = mensagem_padrao || "";
@@ -85,7 +89,7 @@ export async function POST(req: Request) {
         campanha_id: campanha.id,
         lead_id: lead.id,
         numero_id: numeroId,
-        telefone_destino: lead.whatsapp || lead.telefone,
+        telefone_destino: tel,
         nome_destino: lead.nome,
         empresa_destino: lead.nome,
         texto_gerado: texto,

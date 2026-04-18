@@ -27,6 +27,7 @@ export function DisparoUI({ numeros: initialNumeros, campanhas: initialCampanhas
   const [campForm, setCampForm] = useState({
     nome: "", lista_id: "", mensagem_padrao: "",
     intervalo_min_seg: 30, intervalo_max_seg: 90,
+    numero_ids: [] as string[],
   });
 
   const addNumero = async () => {
@@ -50,6 +51,7 @@ export function DisparoUI({ numeros: initialNumeros, campanhas: initialCampanhas
   const criarCampanha = async () => {
     if (!campForm.nome) return toast.error("Nome da campanha obrigatório");
     if (!campForm.lista_id) return toast.error("Selecione uma lista de prospecção");
+    if (campForm.numero_ids.length === 0) return toast.error("Selecione pelo menos 1 número de WhatsApp");
     setLoading(true);
     try {
       const r = await fetch("/api/disparo/campanhas", {
@@ -154,6 +156,26 @@ export function DisparoUI({ numeros: initialNumeros, campanhas: initialCampanhas
                   <option value="">Selecione</option>
                   {listas.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
                 </select>
+              </div>
+              <div>
+                <Label>Números pra disparo (selecione 1 ou mais)</Label>
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  {numeros.filter((n) => n.is_active).map((n) => (
+                    <label key={n.id} className={`flex items-center gap-2 text-sm cursor-pointer border rounded-md px-3 py-2 transition-colors ${campForm.numero_ids.includes(n.id) ? "border-green-500 bg-green-500/10 text-green-400" : "border-border text-muted-foreground hover:border-green-500/50"}`}>
+                      <input type="checkbox" checked={campForm.numero_ids.includes(n.id)}
+                        onChange={(e) => {
+                          const ids = e.target.checked
+                            ? [...campForm.numero_ids, n.id]
+                            : campForm.numero_ids.filter((x) => x !== n.id);
+                          setCampForm({ ...campForm, numero_ids: ids });
+                        }} />
+                      <Phone className="h-3 w-3" /> {n.nome} <span className="text-[10px]">({n.telefone})</span>
+                    </label>
+                  ))}
+                </div>
+                {numeros.filter((n) => n.is_active).length === 0 && (
+                  <div className="text-xs text-red-400 mt-1">Nenhum número cadastrado. Adicione na aba Números primeiro.</div>
+                )}
               </div>
               <div>
                 <Label>Mensagem padrão (fallback se IA falhar)</Label>
