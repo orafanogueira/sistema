@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConvidarMembroButton } from "@/components/configuracoes/convidar-membro";
+import { ToggleFinanceiro } from "@/components/configuracoes/toggle-financeiro";
 
 export default async function ConfiguracoesPage() {
   const supabase = await createClient();
@@ -12,7 +13,7 @@ export default async function ConfiguracoesPage() {
   const tenant = membership?.tenant as { name?: string; slug?: string; domain?: string; primary_color?: string; is_master?: boolean; plan?: string } | null;
 
   const { data: membros } = await supabase.from("memberships")
-    .select("id,role,team,is_active,profile:profiles(full_name,email)")
+    .select("id,role,team,is_active,can_see_financeiro,profile:profiles(full_name,email)")
     .order("created_at");
 
   return (
@@ -42,7 +43,7 @@ export default async function ConfiguracoesPage() {
         <CardContent className="p-0">
           <table className="w-full text-sm">
             <thead className="border-b border-border text-[11px] uppercase text-muted-foreground">
-              <tr><th className="p-3 text-left">Nome</th><th className="p-3 text-left">Email</th><th className="p-3 text-left">Role</th><th className="p-3 text-left">Time</th><th className="p-3 text-left">Status</th></tr>
+              <tr><th className="p-3 text-left">Nome</th><th className="p-3 text-left">Email</th><th className="p-3 text-left">Role</th><th className="p-3 text-left">Time</th><th className="p-3 text-left">Status</th><th className="p-3 text-left">Acessos</th></tr>
             </thead>
             <tbody>
               {(membros || []).map((m) => {
@@ -54,6 +55,12 @@ export default async function ConfiguracoesPage() {
                     <td className="p-3"><Badge variant="outline">{m.role}</Badge></td>
                     <td className="p-3 text-muted-foreground">{m.team || "-"}</td>
                     <td className="p-3"><Badge variant={m.is_active ? "success" : "secondary"}>{m.is_active ? "ativo" : "inativo"}</Badge></td>
+                    <td className="p-3">
+                      {m.role !== "owner" && (
+                        <ToggleFinanceiro membershipId={m.id} currentValue={!!m.can_see_financeiro} />
+                      )}
+                      {m.role === "owner" && <span className="text-[10px] text-green-400">💰 Sempre</span>}
+                    </td>
                   </tr>
                 );
               })}

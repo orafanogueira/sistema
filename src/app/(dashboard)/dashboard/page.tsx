@@ -13,14 +13,13 @@ export default async function DashboardPage() {
   if (!user) redirect("/login");
 
   const { data: membership } = await supabase.from("memberships")
-    .select("role,tenant:tenants(is_master)")
+    .select("role,can_see_financeiro")
     .eq("user_id", user.id).maybeSingle();
 
   const role = membership?.role || "readonly";
-  const isMasterTenant = !!(membership?.tenant as { is_master?: boolean } | null)?.is_master;
-  const canSeeDashboard = role === "owner" || (role === "admin" && isMasterTenant);
+  const canSeeFinanceiro = role === "owner" || !!(membership as Record<string, unknown>)?.can_see_financeiro;
 
-  if (!canSeeDashboard) {
+  if (!canSeeFinanceiro) {
     // redireciona pra pagina principal do departamento do membro
     redirect("/social");
   }

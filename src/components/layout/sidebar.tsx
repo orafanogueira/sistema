@@ -71,9 +71,9 @@ const NAV = [
   ]},
 ];
 
-export function Sidebar({ tenantName, activeProducts = [], isMaster = false, userRole = "owner" }: { tenantName: string; activeProducts?: string[]; isMaster?: boolean; userRole?: string }) {
+export function Sidebar({ tenantName, activeProducts = [], isMaster = false, userRole = "owner", canSeeFinanceiro = false }: { tenantName: string; activeProducts?: string[]; isMaster?: boolean; userRole?: string; canSeeFinanceiro?: boolean }) {
   const pathname = usePathname();
-  const isAdminUser = userRole === "owner" || userRole === "admin";
+  const isAdminUser = canSeeFinanceiro;
 
   // rotas que editor/readonly NAO veem
   const adminOnlyPaths = ["/financeiro", "/cobrancas", "/contratos", "/assinaturas", "/configuracoes", "/dashboard"];
