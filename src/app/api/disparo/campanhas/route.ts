@@ -55,12 +55,20 @@ export async function POST(req: Request) {
       .select("id,nome,telefone,whatsapp,segmento,has_website,rating,status")
       .eq("lista_id", lista_id);
 
-    // pega números selecionados pra rotação
+    // pega números pra rotação (selecionados OU todos ativos)
     let numerosQuery = supabase.from("whatsapp_numeros").select("id").eq("is_active", true);
     if (Array.isArray(numero_ids) && numero_ids.length > 0) {
       numerosQuery = numerosQuery.in("id", numero_ids);
     }
     const { data: numeros } = await numerosQuery;
+
+    // se nenhum número, busca todos ativos como fallback
+    if (!numeros || numeros.length === 0) {
+      const { data: allNumeros } = await supabase.from("whatsapp_numeros").select("id").eq("is_active", true);
+      if (allNumeros && allNumeros.length > 0) {
+        numeros?.push(...allNumeros);
+      }
+    }
 
     const msgs = [];
     let numIdx = 0;
@@ -104,8 +112,12 @@ export async function POST(req: Request) {
       }).eq("id", campanha.id);
     }
 
+    // retorna campanha com total atualizado
+    const campanhaAtualizada = { ...campanha, total_mensagens: msgs.length };
+
     return NextResponse.json({
-      campanha, total_mensagens: msgs.length,
+      campanha: campanhaAtualizada,
+      total_mensagens: msgs.length,
       debug: {
         leads_na_lista: (leads || []).length,
         leads_com_telefone: (leads || []).filter((l) => l.whatsapp || l.telefone).length,

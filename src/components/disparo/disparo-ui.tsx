@@ -71,12 +71,12 @@ export function DisparoUI({ numeros: initialNumeros, campanhas: initialCampanhas
       });
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
-      setCampanhas([data.campanha, ...campanhas]);
       const dbg = data.debug || {};
       toast.success(
         `Campanha criada — ${data.total_mensagens} mensagens`,
-        `Leads na lista: ${dbg.leads_na_lista || 0} | Com telefone: ${dbg.leads_com_telefone || 0} | Números: ${dbg.numeros_selecionados || 0}`
+        `Leads: ${dbg.leads_na_lista || 0} | Tel: ${dbg.leads_com_telefone || 0} | Números: ${dbg.numeros_selecionados || 0}`
       );
+      setTimeout(() => window.location.reload(), 1500);
     } catch (e: unknown) {
       toast.error("Erro", e instanceof Error ? e.message : "tente novamente");
     } finally { setLoading(false); }
