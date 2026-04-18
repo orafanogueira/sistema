@@ -97,6 +97,22 @@ export async function POST(req: Request) {
         ultimo_envio_at: new Date().toISOString(),
       }).eq("id", numero.id);
 
+      // ALIMENTA CRM: move lead pra "contato_feito" + registra atividade
+      if (msg.lead_id) {
+        await supabase.from("prospeccao_leads").update({
+          status: "contato_feito",
+          updated_at: new Date().toISOString(),
+        }).eq("id", msg.lead_id).in("status", ["novo"]);
+
+        await supabase.from("prospeccao_atividades").insert({
+          tenant_id: campanha.tenant_id,
+          lead_id: msg.lead_id,
+          tipo: "whatsapp",
+          resultado: "atendeu",
+          notas: `Disparo automático: ${(msg.texto_gerado || "").slice(0, 100)}...`,
+        }).then(() => {});
+      }
+
       enviadas++;
     } catch (e: unknown) {
       await supabase.from("disparo_mensagens").update({

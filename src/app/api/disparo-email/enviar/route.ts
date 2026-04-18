@@ -44,6 +44,23 @@ export async function POST(req: Request) {
         status: "enviado",
         sent_at: new Date().toISOString(),
       }).eq("id", msg.id);
+
+      // ALIMENTA CRM: move lead + registra atividade
+      if (msg.lead_id) {
+        await supabase.from("prospeccao_leads").update({
+          status: "contato_feito",
+          updated_at: new Date().toISOString(),
+        }).eq("id", msg.lead_id).in("status", ["novo"]);
+
+        await supabase.from("prospeccao_atividades").insert({
+          tenant_id: campanha.tenant_id,
+          lead_id: msg.lead_id,
+          tipo: "email",
+          resultado: "atendeu",
+          notas: `Email automático: ${msg.assunto}`,
+        }).then(() => {});
+      }
+
       enviados++;
     } else {
       await supabase.from("email_mensagens").update({

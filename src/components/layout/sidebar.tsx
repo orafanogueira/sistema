@@ -26,6 +26,7 @@ const NAV = [
     { href: "/leads", label: "Leads", icon: Target },
     { href: "/prospeccao", label: "Prospeccao ativa", icon: Phone },
     { href: "/disparo", label: "Disparo WhatsApp", icon: MessageSquare },
+    { href: "/disparo-email", label: "Disparo Email", icon: Mail },
     { href: "/rastreamento", label: "Rastreamento", icon: Activity },
     { href: "/jornadas", label: "Jornadas", icon: Workflow },
     { href: "/links-rastreaveis", label: "Links", icon: Link2 },
