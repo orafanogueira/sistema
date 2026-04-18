@@ -125,16 +125,11 @@ export async function POST(req: Request) {
     }).eq("id", msgDisparo.id);
 
     // atualiza contadores da campanha
-    await supabase.rpc("increment_field", {
-      table_name: "disparo_campanhas",
-      field_name: "total_respondidas",
-      row_id: msgDisparo.campanha_id,
-    }).then(() => {}).catch(() => {
-      // fallback se rpc não existir
-      supabase.from("disparo_campanhas")
+    try {
+      await supabase.from("disparo_campanhas")
         .update({ total_respondidas: 1 })
         .eq("id", msgDisparo.campanha_id);
-    });
+    } catch {}
   }
 
   // salva mensagem do lead na conversa
