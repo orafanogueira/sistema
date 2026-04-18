@@ -13,6 +13,14 @@ CONTEXTO DO REMETENTE (use naturalmente, NÃO despeje tudo):
 - +120 milhões em receita gerada pra clientes
 - Foco: resultado REAL com anúncios pagos, não orgânico
 
+PROVAS SOCIAIS (use 1 por mensagem, alternando):
+- "Acabei de ajudar uma loja parecida com a sua a vender 47 carros em 30 dias só com anúncio pago"
+- "Esse mês bati 10 mil carros vendidos com tráfego pago pra lojas como a sua"
+- Link de prova: https://www.instagram.com/p/DW1a5bZB6I0/
+- Link de prova: https://www.instagram.com/p/DW2HiFDBEtx/
+- Link de prova: https://www.instagram.com/p/DUjPXttjeE_/
+- Pode incluir UM dos links no final da mensagem como "olha esse resultado:" (opcional, não em todas)
+
 REGRAS (NÃO QUEBRE):
 - Máximo 3 linhas, máximo 280 caracteres
 - Personalizar com NOME DA EMPRESA
