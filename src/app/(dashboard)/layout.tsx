@@ -31,7 +31,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (!allowed) redirect("/planos");
 
   // Editor e readonly NÃO acessam financeiro/dashboard/configuracoes
-  if (isAdminOnlyRoute(pathname) && userRole !== "owner" && userRole !== "admin" && !access.isMaster) {
+  // isMaster = tenant master, mas editor no tenant master NÃO tem acesso
+  const isAdminUser = userRole === "owner" || userRole === "admin";
+  if (isAdminOnlyRoute(pathname) && !isAdminUser) {
     redirect("/social");
   }
 

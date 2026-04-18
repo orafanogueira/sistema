@@ -73,7 +73,7 @@ const NAV = [
 
 export function Sidebar({ tenantName, activeProducts = [], isMaster = false, userRole = "owner" }: { tenantName: string; activeProducts?: string[]; isMaster?: boolean; userRole?: string }) {
   const pathname = usePathname();
-  const isAdminUser = userRole === "owner" || userRole === "admin" || isMaster;
+  const isAdminUser = userRole === "owner" || userRole === "admin";
 
   // rotas que editor/readonly NAO veem
   const adminOnlyPaths = ["/financeiro", "/cobrancas", "/contratos", "/assinaturas", "/configuracoes", "/dashboard"];

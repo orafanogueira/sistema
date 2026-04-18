@@ -16,10 +16,11 @@ export default async function DashboardPage() {
     .select("role,tenant:tenants(is_master)")
     .eq("user_id", user.id).maybeSingle();
 
-  const isOwner = membership?.role === "owner";
-  const isMaster = !!(membership?.tenant as { is_master?: boolean } | null)?.is_master;
+  const role = membership?.role || "readonly";
+  const isMasterTenant = !!(membership?.tenant as { is_master?: boolean } | null)?.is_master;
+  const canSeeDashboard = role === "owner" || (role === "admin" && isMasterTenant);
 
-  if (!isOwner && !isMaster) {
+  if (!canSeeDashboard) {
     // redireciona pra pagina principal do departamento do membro
     redirect("/social");
   }
