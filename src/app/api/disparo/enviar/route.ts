@@ -63,11 +63,15 @@ export async function POST(req: Request) {
       }
 
       const zapiUrl = `https://api.z-api.io/instances/${numero.zapi_instance_id}/token/${numero.zapi_token}/send-text`;
+      const clientToken = process.env.ZAPI_CLIENT_TOKEN || "";
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 15000);
       const r = await fetch(zapiUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Client-Token": clientToken,
+        },
         body: JSON.stringify({
           phone: msg.telefone_destino.replace(/\D/g, ""),
           message: msg.texto_gerado,
