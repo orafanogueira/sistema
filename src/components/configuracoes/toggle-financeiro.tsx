@@ -10,11 +10,12 @@ export function ToggleFinanceiro({ membershipId, currentValue }: { membershipId:
   const toggle = async () => {
     setLoading(true);
     try {
-      const supabase = createClient();
-      const { error } = await supabase.from("memberships")
-        .update({ can_see_financeiro: !enabled })
-        .eq("id", membershipId);
-      if (error) throw error;
+      const r = await fetch("/api/memberships/toggle-financeiro", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ membership_id: membershipId, value: !enabled }),
+      });
+      if (!r.ok) throw new Error(await r.text());
       setEnabled(!enabled);
       toast.success(!enabled ? "Financeiro liberado" : "Financeiro bloqueado");
     } catch (e: unknown) {
