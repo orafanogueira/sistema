@@ -62,12 +62,11 @@ export function ConvidarMembroButton() {
                   onChange={(e) => setForm({ ...form, email: e.target.value })} />
               </div>
               <div>
-                <Label>Cargo / Role</Label>
+                <Label>Permissão</Label>
                 <select className="mt-1 flex h-10 w-full rounded-md border border-input bg-background/40 px-3 text-sm"
                   value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-                  <option value="readonly">Somente leitura</option>
-                  <option value="editor">Editor</option>
-                  <option value="admin">Admin</option>
+                  <option value="admin">Admin (cria, edita, configura)</option>
+                  <option value="readonly">Somente leitura (visualiza)</option>
                 </select>
               </div>
               <div>
