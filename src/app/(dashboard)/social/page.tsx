@@ -10,6 +10,7 @@ import { EditorVideoButton } from "@/components/social/editor-video";
 import { ClientSwitcher } from "@/components/social/client-switcher";
 import { GerarCalendarioButton } from "@/components/social/gerar-calendario";
 import { ConectarRedesButton } from "@/components/social/conectar-redes";
+import { CriativoGenerator } from "@/components/social/criativo-generator";
 
 export const dynamic = "force-dynamic";
 
@@ -116,6 +117,9 @@ export default async function SocialPage({ searchParams }: { searchParams: Promi
           </CardContent>
         </Card>
       )}
+
+      {/* GERADOR DE CRIATIVOS */}
+      <CriativoGenerator clientes={(clientes || []) as Array<{ id: string; nome: string }>} />
 
       <div className="grid md:grid-cols-4 gap-4">
         <Card><CardContent className="p-5"><div className="text-xs text-muted-foreground uppercase">Total</div><div className="text-2xl font-black mt-1">{formatInt(stats.total)}</div></CardContent></Card>
