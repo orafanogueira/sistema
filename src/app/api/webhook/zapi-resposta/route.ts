@@ -63,16 +63,11 @@ Responda APENAS com a mensagem de resposta, nada mais.`;
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
 
-  // Z-API envia: { phone, message: { text }, isGroup, fromMe }
-  const phone = body.phone?.replace(/\D/g, "") || "";
-  const text = body.message?.text || body.text?.message || body.body || "";
-  const isGroup = body.isGroup || body.isGroupMsg || false;
+  // Z-API envia vários formatos — captura tudo
+  const phone = (body.phone || body.from || "").replace(/\D/g, "");
+  const text = body.text?.message || body.message?.text || body.body || body.message || "";
+  const isGroup = body.isGroup || body.isGroupMsg || body.chatName?.includes("@g.us") || false;
   const fromMe = body.fromMe || false;
-
-  // ignora: grupos, mensagens próprias, sem texto
-  if (isGroup || fromMe || !text || !phone) {
-    return NextResponse.json({ ignored: true });
-  }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -82,17 +77,32 @@ export async function POST(req: Request) {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  // LOG DE DEBUG: salva tudo que Z-API manda (pra diagnosticar)
+  await supabase.from("disparo_conversas").insert({
+    tenant_id: "00000000-0000-0000-0000-000000000000",
+    telefone: phone || "sem_phone",
+    role: "system",
+    content: JSON.stringify({ phone, text, isGroup, fromMe, raw_keys: Object.keys(body) }).slice(0, 500),
+  }).then(() => {}).catch(() => {});
+
+  // ignora: grupos, mensagens próprias, sem texto
+  if (isGroup || fromMe || !text || !phone) {
+    return NextResponse.json({ ignored: true, phone, text: text?.slice(0, 50), isGroup, fromMe });
+  }
+
   // VERIFICA: esse telefone é de um lead de disparo?
+  // tenta match exato E parcial (últimos 10-11 dígitos)
+  const phoneSuffix = phone.slice(-11); // DDD + número (sem código país)
   const { data: msgDisparo } = await supabase.from("disparo_mensagens")
-    .select("id,lead_id,tenant_id,numero_id,campanha_id")
-    .eq("telefone_destino", phone)
+    .select("id,lead_id,tenant_id,numero_id,campanha_id,telefone_destino")
     .in("status", ["enviado", "respondido"])
+    .or(`telefone_destino.eq.${phone},telefone_destino.like.%${phoneSuffix}`)
     .order("created_at", { ascending: false })
     .limit(1).maybeSingle();
 
   // se NÃO é lead de disparo → ignora (não responde)
   if (!msgDisparo) {
-    return NextResponse.json({ ignored: true, reason: "not_dispatch_lead" });
+    return NextResponse.json({ ignored: true, reason: "not_dispatch_lead", phone, phoneSuffix });
   }
 
   const tenantId = msgDisparo.tenant_id;
