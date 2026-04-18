@@ -30,8 +30,19 @@ export function DisparoUI({ numeros: initialNumeros, campanhas: initialCampanhas
     numero_ids: [] as string[],
   });
 
+  const deleteNumero = async (id: string) => {
+    if (!confirm("Excluir esse número?")) return;
+    try {
+      const supabase = (await import("@/lib/supabase/client")).createClient();
+      await supabase.from("whatsapp_numeros").delete().eq("id", id);
+      setNumeros(numeros.filter((n) => n.id !== id));
+      toast.success("Número excluído");
+    } catch { toast.error("Erro ao excluir"); }
+  };
+
   const addNumero = async () => {
     if (!numForm.nome || !numForm.telefone) return toast.error("Nome e telefone obrigatórios");
+    if (!numForm.zapi_instance_id || !numForm.zapi_token) return toast.error("Z-API Instance ID e Token obrigatórios");
     setLoading(true);
     try {
       const r = await fetch("/api/disparo/numeros", {
@@ -137,6 +148,9 @@ export function DisparoUI({ numeros: initialNumeros, campanhas: initialCampanhas
                       <span className="text-xs text-muted-foreground">
                         {n.msgs_enviadas_hoje}/{n.max_por_dia} hoje
                       </span>
+                      <Button size="sm" variant="ghost" onClick={() => deleteNumero(n.id)} className="text-red-400 hover:text-red-300">
+                        ✕
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
