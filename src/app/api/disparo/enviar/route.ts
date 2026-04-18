@@ -63,6 +63,8 @@ export async function POST(req: Request) {
       }
 
       const zapiUrl = `https://api.z-api.io/instances/${numero.zapi_instance_id}/token/${numero.zapi_token}/send-text`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
       const r = await fetch(zapiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -70,7 +72,9 @@ export async function POST(req: Request) {
           phone: msg.telefone_destino.replace(/\D/g, ""),
           message: msg.texto_gerado,
         }),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
 
       if (!r.ok) {
         const txt = await r.text();
@@ -99,9 +103,11 @@ export async function POST(req: Request) {
     }
 
     // intervalo aleatório entre mensagens (anti-ban)
-    // intervalo 5-15s (cabe no Vercel: 10 msgs × 15s = 150s < 600s timeout)
-    const delay = Math.floor(Math.random() * 11) + 5;
-    await new Promise((r) => setTimeout(r, delay * 1000));
+    // delay só se enviou com sucesso (erro pula rápido)
+    if (enviadas > 0) {
+      const delay = Math.floor(Math.random() * 11) + 5;
+      await new Promise((r) => setTimeout(r, delay * 1000));
+    }
   }
 
   // atualiza contadores da campanha
