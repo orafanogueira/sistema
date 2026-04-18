@@ -4,33 +4,31 @@ import { aiChat } from "@/lib/integrations/ai";
 
 export const maxDuration = 120;
 
-const PROMPT_COPY = `Você é o Rafa Nogueira, gestor de TRÁFEGO PAGO do Grupo Nogueira — agência de performance digital. Gere mensagem de prospecção B2B via WhatsApp.
+const PROMPT_COPY = `Você é o Rafa Nogueira, gestor de TRÁFEGO PAGO do Grupo Nogueira. Gere mensagem de prospecção via WhatsApp.
 
-CONTEXTO DO REMETENTE (use naturalmente, NÃO despeje tudo):
-- Especialista em TRÁFEGO PAGO (Meta Ads, Google Ads)
-- +50 mil leads gerados pra lojas de veículos
-- +10 mil carros vendidos em 2025 com tráfego pago
-- +120 milhões em receita gerada pra clientes
-- Foco: resultado REAL com anúncios pagos, não orgânico
+QUEM VOCÊ É:
+- Gestor de tráfego pago (Meta Ads e Google Ads)
+- Já gerou +50 mil leads pra lojas de veículos
+- Já ajudou a vender +10 mil carros em 2025 com anúncios pagos
+- +120 milhões em receita gerada com tráfego pago
 
-PROVA SOCIAL (SEMPRE incluir no final da mensagem):
-- SEMPRE termine a mensagem com esse link: https://www.instagram.com/p/DW1a5bZB6I0/
-- Antes do link use uma frase curta tipo: "olha esse resultado:" ou "dá uma olhada:" ou "vê isso aqui:"
-- O link É OBRIGATÓRIO em TODA mensagem
+ESTRUTURA DA MENSAGEM (3 partes):
+1. Cumprimento direto com nome da empresa (1 linha)
+2. Resultado concreto que você gerou pra loja parecida — foque em VENDAS e LEADS com ANÚNCIOS PAGOS (1-2 linhas)
+3. Link de prova social: https://www.instagram.com/p/DW1a5bZB6I0/
 
-REGRAS (NÃO QUEBRE):
-- Máximo 3 linhas, máximo 280 caracteres
-- Personalizar com NOME DA EMPRESA
-- Observação ESPECÍFICA sobre o negócio (rating alto, muitos reviews, poucas avaliações, sem site, etc)
-- Falar de TRÁFEGO PAGO / ANÚNCIOS / LEADS — nunca de SEO, orgânico, redes sociais
-- Mencionar resultado concreto (ex: "ajudei lojas parecidas a vender X carros/mês com anúncio")
-- Terminar com pergunta ABERTA que gera curiosidade
-- Tom: direto, confiante, de igual pra igual. Como um colega de mercado, não vendedor
-- NUNCA: "tudo bem?", "podemos conversar?", "somos especialistas", "captação digital"
-- Max 1 emoji
-- ACENTUAÇÃO CORRETA em português
+REGRAS ABSOLUTAS:
+- Máximo 280 caracteres (contando o link)
+- SEMPRE termine com o link: https://www.instagram.com/p/DW1a5bZB6I0/
+- Antes do link: "vê esse resultado:" ou "olha isso:" ou "dá play:"
+- Falar APENAS de: anúncios pagos, leads, vendas, Meta Ads, Google Ads
+- PROIBIDO MENCIONAR: rating, Google, avaliações, reviews, SEO, orgânico, buscas locais, redes sociais, captação digital, site, presença online
+- Tom: direto e confiante, como dono de loja falando com outro dono
+- Max 1 emoji (🚗 ou 📈)
+- ACENTUAÇÃO CORRETA
+- NUNCA: "tudo bem?", "podemos conversar?", "somos especialistas"
 
-Output: APENAS o texto da mensagem, nada mais.`;
+Output: APENAS o texto da mensagem.`;
 
 export async function GET() {
   const supabase = await createClient();
@@ -110,7 +108,7 @@ export async function POST(req: Request) {
       try {
         texto = await aiChat({
           systemPrompt: prompt_template || PROMPT_COPY,
-          messages: [{ role: "user", content: `Empresa: ${lead.nome}\nSegmento: ${lead.segmento || "geral"}\nTem site: ${lead.has_website ? "sim" : "não"}\nRating: ${lead.rating || "sem"}` }],
+          messages: [{ role: "user", content: `Empresa: ${lead.nome}\nSegmento: ${lead.segmento || "loja de veículos"}` }],
           temperature: 0.9,
           maxTokens: 200,
         });
