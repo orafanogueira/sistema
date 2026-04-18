@@ -27,7 +27,11 @@ export function ConvidarMembroButton() {
       const data = await r.json();
       const base = window.location.origin;
       setLink(`${base}/convite/${data.token}`);
-      toast.success("Convite criado", "Envie o link pra pessoa");
+      if (data.email_sent) {
+        toast.success("Convite enviado por email!", data.message);
+      } else {
+        toast.error("Convite criado mas email falhou", data.email_error || data.message || "copie o link manualmente");
+      }
     } catch (e: unknown) {
       toast.error("Erro", e instanceof Error ? e.message : "tente novamente");
     } finally {
