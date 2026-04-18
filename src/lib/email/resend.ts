@@ -12,11 +12,10 @@ interface SendEmailOpts {
   from?: string;
 }
 
-export async function sendEmail(opts: SendEmailOpts): Promise<boolean> {
+export async function sendEmail(opts: SendEmailOpts): Promise<{ sent: boolean; error?: string }> {
   const key = process.env.RESEND_API_KEY;
   if (!key) {
-    console.warn("[email] RESEND_API_KEY ausente — email nao enviado:", opts.to, opts.subject);
-    return false;
+    return { sent: false, error: "RESEND_API_KEY ausente no Vercel" };
   }
 
   try {
@@ -32,13 +31,11 @@ export async function sendEmail(opts: SendEmailOpts): Promise<boolean> {
     });
     if (!r.ok) {
       const txt = await r.text();
-      console.error("[email] Resend falhou:", r.status, txt.slice(0, 200));
-      return false;
+      return { sent: false, error: `Resend ${r.status}: ${txt.slice(0, 300)}` };
     }
-    return true;
+    return { sent: true };
   } catch (e) {
-    console.error("[email] erro:", e);
-    return false;
+    return { sent: false, error: e instanceof Error ? e.message : "erro" };
   }
 }
 

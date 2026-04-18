@@ -37,7 +37,7 @@ export async function POST(req: Request) {
   const tenantName = (m.tenant as { name?: string } | null)?.name || "Nogueira OS";
 
   // Envia email de convite
-  const emailSent = await sendEmail({
+  const emailResult = await sendEmail({
     to: email,
     subject: `Convite pra ${tenantName} — Nogueira OS`,
     html: conviteEmailHtml({
@@ -53,7 +53,8 @@ export async function POST(req: Request) {
   return NextResponse.json({
     ...data,
     invite_url: inviteUrl,
-    email_sent: emailSent,
-    message: emailSent ? "Convite enviado por email" : "Convite criado (email nao configurado — copie o link)",
+    email_sent: emailResult.sent,
+    email_error: emailResult.error || null,
+    message: emailResult.sent ? "Convite enviado por email" : `Convite criado. Email: ${emailResult.error || "nao enviado"}`,
   });
 }
