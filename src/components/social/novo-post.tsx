@@ -233,6 +233,12 @@ export function NovoPostButton({ clientes }: { clientes: { id: string; nome: str
                     </button>
                   ))}
                 </div>
+                {(form.format === "feed" || form.format === "feed_vertical" || form.format === "reel" || form.format === "story") && (
+                  <div className="mt-3 p-3 bg-cyan/5 border border-cyan/30 rounded-md space-y-2">
+                    <div className="text-xs font-bold flex items-center gap-1"><Sparkles className="h-3 w-3 text-cyan" /> Gerar criativo com IA</div>
+                    <div className="text-xs text-muted-foreground">Preencha briefing abaixo → use "Gerar com IA" na seção Mídia pra criar imagem automaticamente</div>
+                  </div>
+                )}
                 {form.format === "carrossel" && (
                   <>
                     <div className="mt-2 flex items-center gap-3">
