@@ -24,7 +24,7 @@ export async function sendEmail(opts: SendEmailOpts): Promise<boolean> {
       method: "POST",
       headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: opts.from || "Nogueira OS <noreply@gruponogueiramkt.com>",
+        from: opts.from || "Nogueira OS <onboarding@resend.dev>",
         to: opts.to,
         subject: opts.subject,
         html: opts.html,
