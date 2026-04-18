@@ -103,13 +103,22 @@ export async function POST(req: Request) {
       }
       telefonesJaEnviados.add(telLimpo); // marca pra não duplicar dentro da mesma campanha
 
-      // gera copy personalizado com IA
+      // gera copy com 5 VARIAÇÕES (A/B testing) — distribui 1 por lead
+      const variacaoIdx = msgs.length % 5;
+      const VARIACOES = [
+        "Abordagem direta com resultado numérico",
+        "Pergunta provocativa sobre o negócio",
+        "Prova social com caso de sucesso",
+        "Gancho de escassez/oportunidade",
+        "Elogio + insight de mercado",
+      ];
+      const variacaoLabel = VARIACOES[variacaoIdx];
       let texto = mensagem_padrao || "";
       try {
         texto = await aiChat({
           systemPrompt: prompt_template || PROMPT_COPY,
-          messages: [{ role: "user", content: `Empresa: ${lead.nome}\nSegmento: ${lead.segmento || "loja de veículos"}` }],
-          temperature: 0.9,
+          messages: [{ role: "user", content: `Empresa: ${lead.nome}\nSegmento: ${lead.segmento || "loja de veículos"}\n\nESTILO DESTA VARIAÇÃO: ${variacaoLabel}. Use esse estilo específico na abordagem.` }],
+          temperature: 0.95,
           maxTokens: 200,
         });
       } catch {
@@ -125,6 +134,8 @@ export async function POST(req: Request) {
         lead_id: lead.id,
         numero_id: numeroId,
         telefone_destino: tel,
+        variacao: variacaoIdx,
+        variacao_label: variacaoLabel,
         nome_destino: lead.nome,
         empresa_destino: lead.nome,
         texto_gerado: texto,
