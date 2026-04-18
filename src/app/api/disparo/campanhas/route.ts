@@ -113,7 +113,7 @@ export async function POST(req: Request) {
         "Gancho de escassez/oportunidade",
         "Elogio + insight de mercado",
       ];
-      const variacaoLabel = VARIACOES[variacaoIdx];
+      const variacaoLabel: string = VARIACOES[variacaoIdx];
       let texto = mensagem_padrao || "";
       try {
         texto = await aiChat({
