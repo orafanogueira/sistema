@@ -26,7 +26,8 @@ REGRAS ABSOLUTAS:
 - Tom: direto e confiante, como dono de loja falando com outro dono
 - Max 1 emoji (🚗 ou 📈)
 - ACENTUAÇÃO CORRETA
-- NUNCA: "tudo bem?", "podemos conversar?", "somos especialistas"
+- PROIBIDO (DESCARTA se usar): "tudo bem", "tudo bem?", "como vai", "bom dia", "boa tarde", "podemos conversar", "somos especialistas"
+- Comece DIRETO com nome da empresa ou resultado concreto — ZERO saudação genérica
 
 Output: APENAS o texto da mensagem.`;
 
