@@ -23,7 +23,7 @@ export async function sendEmail(opts: SendEmailOpts): Promise<{ sent: boolean; e
       method: "POST",
       headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: opts.from || "Nogueira OS <onboarding@resend.dev>",
+        from: opts.from || "Nogueira OS <noreply@gruponogueiramkt.com>",
         to: opts.to,
         subject: opts.subject,
         html: opts.html,
