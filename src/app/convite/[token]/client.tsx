@@ -41,19 +41,30 @@ export function AceitarConvite({ token, email }: { token: string; email: string 
     setLoading(true); setErr(null);
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.signUp({
+      const { data: signUpData, error } = await supabase.auth.signUp({
         email,
         password,
         options: { data: { full_name: nome || email.split("@")[0] } },
       });
       if (error) throw error;
-      // aguarda confirmar email (Supabase pode exigir)
-      // tenta aceitar direto
+
+      // Se Supabase exige confirmação de email, signUp retorna user mas session pode ser null
+      if (signUpData?.user && !signUpData.session) {
+        // tenta logar direto (funciona se autoconfirm tá ativo)
+        const { error: loginErr } = await supabase.auth.signInWithPassword({ email, password });
+        if (loginErr) {
+          // precisa confirmar email primeiro
+          setErr("Conta criada! Verifique seu email pra confirmar, depois clique em 'Já tenho conta' aqui.");
+          setMode("login");
+          return;
+        }
+      }
+
       await aceitarConvite();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "erro";
-      if (msg.includes("already registered") || msg.includes("already exists")) {
-        setErr("Email já tem conta — use login");
+      if (msg.includes("already registered") || msg.includes("already exists") || msg.includes("already been registered")) {
+        setErr("Email já tem conta — use 'Já tenho conta'");
         setMode("login");
       } else {
         setErr(msg);
