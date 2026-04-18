@@ -60,6 +60,11 @@ REGRAS ABSOLUTAS:
 
 Responda APENAS com a mensagem de resposta, nada mais.`;
 
+// GET: Z-API testa se URL tá ativa
+export async function GET() {
+  return NextResponse.json({ status: "ok", webhook: "zapi-resposta" });
+}
+
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
 
