@@ -99,9 +99,8 @@ export async function POST(req: Request) {
     }
 
     // intervalo aleatório entre mensagens (anti-ban)
-    const min = campanha.intervalo_min_seg || 30;
-    const max = campanha.intervalo_max_seg || 90;
-    const delay = Math.floor(Math.random() * (max - min + 1)) + min;
+    // intervalo 5-15s (cabe no Vercel: 10 msgs × 15s = 150s < 600s timeout)
+    const delay = Math.floor(Math.random() * 11) + 5;
     await new Promise((r) => setTimeout(r, delay * 1000));
   }
 
