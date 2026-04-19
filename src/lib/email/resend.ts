@@ -10,6 +10,7 @@ interface SendEmailOpts {
   subject: string;
   html: string;
   from?: string;
+  attachments?: Array<{ filename: string; content: string }>; // content = base64
 }
 
 export async function sendEmail(opts: SendEmailOpts): Promise<{ sent: boolean; error?: string }> {
@@ -19,15 +20,20 @@ export async function sendEmail(opts: SendEmailOpts): Promise<{ sent: boolean; e
   }
 
   try {
+    const body: Record<string, unknown> = {
+      from: opts.from || "Nogueira OS <noreply@gruponogueiramkt.com>",
+      to: opts.to,
+      subject: opts.subject,
+      html: opts.html,
+    };
+    if (opts.attachments && opts.attachments.length > 0) {
+      body.attachments = opts.attachments;
+    }
+
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: opts.from || "Nogueira OS <noreply@gruponogueiramkt.com>",
-        to: opts.to,
-        subject: opts.subject,
-        html: opts.html,
-      }),
+      body: JSON.stringify(body),
     });
     if (!r.ok) {
       const txt = await r.text();

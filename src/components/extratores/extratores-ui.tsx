@@ -4,14 +4,25 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Instagram, Facebook, Download, Search, Users, Linkedin } from "lucide-react";
+import { Loader2, Instagram, Facebook, Download, Search, Users, Linkedin, MessageSquare, Mail } from "lucide-react";
 import { toast } from "@/components/ui/toaster";
+import { ModalDisparo, type DisparoTipo } from "./modal-disparo";
 
 type Tab = "instagram" | "facebook" | "apollo";
 
 export function ExtratoresUI() {
   const [tab, setTab] = useState<Tab>("instagram");
   const [loading, setLoading] = useState(false);
+  const [modalDisparo, setModalDisparo] = useState<{ aberto: boolean; tipo: DisparoTipo; contatos: Array<Record<string, unknown>> }>({
+    aberto: false,
+    tipo: "whatsapp",
+    contatos: [],
+  });
+
+  const abrirDisparo = (tipo: DisparoTipo, contatos: Array<Record<string, unknown>>) => {
+    if (!contatos || contatos.length === 0) return toast.error("Nenhum contato disponível");
+    setModalDisparo({ aberto: true, tipo, contatos });
+  };
 
   // Instagram
   const [igForm, setIgForm] = useState({
@@ -197,13 +208,30 @@ export function ExtratoresUI() {
           {igResult && (
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <CardTitle className="text-sm">{igResult.total || 0} resultados</CardTitle>
-                  <Button size="sm" variant="outline" onClick={() =>
-                    downloadCSV((igResult.profiles || igResult.followers || []) as Array<Record<string, unknown>>, `instagram-${igForm.username}`)}>
-                    <Download className="h-3 w-3" /> CSV
-                  </Button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Button size="sm" variant="outline" onClick={() =>
+                      downloadCSV((igResult.profiles || igResult.followers || []) as Array<Record<string, unknown>>, `instagram-${igForm.username}`)}>
+                      <Download className="h-3 w-3" /> CSV
+                    </Button>
+                    {igResult.followers && igResult.followers.length > 0 && igResult.enriched && (
+                      <>
+                        <Button size="sm" onClick={() => abrirDisparo("whatsapp", igResult.followers as Array<Record<string, unknown>>)}>
+                          <MessageSquare className="h-3 w-3" /> WhatsApp IA
+                        </Button>
+                        <Button size="sm" onClick={() => abrirDisparo("email", igResult.followers as Array<Record<string, unknown>>)}>
+                          <Mail className="h-3 w-3" /> Email IA
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
+                {igResult.followers && igResult.followers.length > 0 && !igResult.enriched && (
+                  <div className="text-[10px] text-amber-400 mt-2">
+                    ⚠️ Pra disparar WhatsApp/Email, marque a opção &quot;Buscar email e telefone&quot; antes de extrair.
+                  </div>
+                )}
               </CardHeader>
               <CardContent>
                 {igResult.profiles && igResult.profiles.length > 0 && (
@@ -308,12 +336,27 @@ export function ExtratoresUI() {
           {fbResult && (
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <CardTitle className="text-sm">{fbResult.total || 0} membros</CardTitle>
-                  <Button size="sm" variant="outline" onClick={() =>
-                    downloadCSV((fbResult.members || []) as Array<Record<string, unknown>>, "facebook-group-members")}>
-                    <Download className="h-3 w-3" /> CSV
-                  </Button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Button size="sm" variant="outline" onClick={() =>
+                      downloadCSV((fbResult.members || []) as Array<Record<string, unknown>>, "facebook-group-members")}>
+                      <Download className="h-3 w-3" /> CSV
+                    </Button>
+                    {fbResult.members && fbResult.members.length > 0 && (
+                      <>
+                        <Button size="sm" onClick={() => abrirDisparo("whatsapp", fbResult.members as Array<Record<string, unknown>>)}>
+                          <MessageSquare className="h-3 w-3" /> WhatsApp IA
+                        </Button>
+                        <Button size="sm" onClick={() => abrirDisparo("email", fbResult.members as Array<Record<string, unknown>>)}>
+                          <Mail className="h-3 w-3" /> Email IA
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="text-[10px] text-amber-400 mt-2">
+                  ⚠️ Facebook Groups só retorna nome e URL do perfil. O disparo só funciona em membros que tiverem telefone/email no bio (vai pular os demais).
                 </div>
               </CardHeader>
               <CardContent>
@@ -340,6 +383,13 @@ export function ExtratoresUI() {
           )}
         </div>
       )}
+
+      <ModalDisparo
+        open={modalDisparo.aberto}
+        onClose={() => setModalDisparo({ ...modalDisparo, aberto: false })}
+        tipo={modalDisparo.tipo}
+        contatos={modalDisparo.contatos}
+      />
     </div>
   );
 }
