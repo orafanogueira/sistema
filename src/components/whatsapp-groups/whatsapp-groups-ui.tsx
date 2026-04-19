@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Search, MessageSquare, ExternalLink, Users, Zap } from "lucide-react";
+import { Loader2, Search, MessageSquare, ExternalLink, Users, Zap, LogIn } from "lucide-react";
 import { toast } from "@/components/ui/toaster";
 import { ModalDisparo } from "@/components/extratores/modal-disparo";
 
@@ -76,6 +76,28 @@ export function WhatsAppGroupsUI() {
     } catch (e: unknown) {
       toast.error("Erro", e instanceof Error ? e.message : "tente novamente");
     } finally { setLoading(false); }
+  };
+
+  const soEntrar = async (link: string) => {
+    setProcessandoLink(link);
+    try {
+      const r = await fetch("/api/whatsapp-groups/entrar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invite_link: link }),
+      });
+      const data = await r.json();
+      if (!r.ok || data.erro) {
+        toast.error("Erro ao entrar", data.erro || "tente novamente");
+        return;
+      }
+      const msg = data.ja_era_participante ? "Você já era membro" : "Entrou no grupo";
+      toast.success(msg, data.group_name);
+    } catch (e: unknown) {
+      toast.error("Erro", e instanceof Error ? e.message : "tente novamente");
+    } finally {
+      setProcessandoLink(null);
+    }
   };
 
   const entrarExtrairEDisparar = async (link: string) => {
@@ -224,14 +246,22 @@ export function WhatsAppGroupsUI() {
                         </Badge>
                       </>
                     )}
-                    <div className="ml-auto">
+                    <div className="ml-auto flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => soEntrar(g.link)}
+                        disabled={isProcessing}
+                      >
+                        <LogIn className="h-3 w-3" /> Só entrar
+                      </Button>
                       <Button
                         size="sm"
                         onClick={() => entrarExtrairEDisparar(g.link)}
                         disabled={isProcessing}
                       >
                         {isProcessing ? (
-                          <><Loader2 className="h-3 w-3 animate-spin" /> Entrando...</>
+                          <><Loader2 className="h-3 w-3 animate-spin" /> Processando...</>
                         ) : (
                           <><Zap className="h-3 w-3" /> {ex ? "Disparar novamente" : "Entrar + extrair + disparar"}</>
                         )}

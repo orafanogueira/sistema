@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Search, MessageSquare, Mail, ExternalLink, Users, Zap, Facebook } from "lucide-react";
+import { Loader2, Search, MessageSquare, Mail, ExternalLink, Users, Zap, Facebook, LogIn } from "lucide-react";
 import { toast } from "@/components/ui/toaster";
 import { ModalDisparo } from "@/components/extratores/modal-disparo";
 
@@ -232,7 +232,14 @@ export function FacebookGroupsUI() {
                         ) : null}
                       </>
                     )}
-                    <div className="ml-auto flex gap-2">
+                    <div className="ml-auto flex gap-2 flex-wrap">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => window.open(g.link, "_blank", "noopener")}
+                      >
+                        <LogIn className="h-3 w-3" /> Entrar no grupo
+                      </Button>
                       <Button
                         size="sm"
                         onClick={() => extrairEDisparar(g.link, "whatsapp")}
