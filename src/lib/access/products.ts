@@ -55,6 +55,7 @@ export const ROUTE_PRODUCTS: Record<string, string[]> = {
   "/disparo": ["comercial", "completo"],
   "/disparo-email": ["comercial", "completo"],
   "/extratores": ["comercial", "completo"],
+  "/whatsapp-groups": ["comercial", "completo"],
 
   // YouTube
   "/youtube": ["youtube", "completo"],
