@@ -178,26 +178,34 @@ export async function enrichFollowersWithContact(
           continue;
         }
 
-        const email =
+        const bio = (match.biography as string) || "";
+        const website = (match.externalUrl as string) || undefined;
+
+        let email =
           (match.businessEmail as string) ||
           (match.publicEmail as string) ||
-          extractEmailFromBio((match.biography as string) || "") ||
+          extractEmailFromBio(bio) ||
           undefined;
 
         const phone =
           (match.businessPhoneNumber as string) ||
           (match.publicPhoneNumber as string) ||
-          extractPhoneFromBio((match.biography as string) || "") ||
+          extractPhoneFromBio(bio) ||
           undefined;
+
+        // último recurso: raspa o website procurando email na home
+        if (!email && website && website.startsWith("http")) {
+          email = await extractEmailFromWebsite(website);
+        }
 
         enriched.push({
           username: original.username,
           fullName: (match.fullName as string) || original.fullName,
           profilePicUrl: (match.profilePicUrl as string) || original.profilePicUrl,
-          biography: (match.biography as string) || undefined,
+          biography: bio || undefined,
           email,
           phone,
-          website: (match.externalUrl as string) || undefined,
+          website,
           isBusinessAccount: (match.isBusinessAccount as boolean) || false,
           businessCategory: (match.businessCategoryName as string) || undefined,
           followersCount: (match.followersCount as number) || undefined,
@@ -215,14 +223,49 @@ export async function enrichFollowersWithContact(
 }
 
 function extractEmailFromBio(bio: string): string | undefined {
-  const match = bio.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-  return match ? match[0] : undefined;
+  if (!bio) return undefined;
+  // remove emojis e caracteres especiais que colam no email
+  const clean = bio.replace(/[\u{1F300}-\u{1FAFF}]|[\u{2600}-\u{27BF}]/gu, " ");
+  const match = clean.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+  return match ? match[0].toLowerCase() : undefined;
 }
 
 function extractPhoneFromBio(bio: string): string | undefined {
-  // tenta pegar telefone BR: (11) 98765-4321, 11987654321, +5511987654321 etc
-  const match = bio.match(/(\+?55\s?)?\(?\d{2}\)?\s?9?\d{4}[-\s]?\d{4}/);
-  return match ? match[0].replace(/\D/g, "") : undefined;
+  if (!bio) return undefined;
+  // BR: vários formatos — (11) 98765-4321, 11987654321, +5511987654321, 11 9 8765 4321
+  const patterns = [
+    /\+?55\s?\(?\d{2}\)?\s?9?\s?\d{4}[-\s]?\d{4}/,
+    /\(?\d{2}\)?\s?9\s?\d{4}[-\s]?\d{4}/,
+    /\b\d{2}\s?9\d{8}\b/,
+    /\bwa\.me\/(\d+)/i,
+    /\bapi\.whatsapp\.com\/send\?phone=(\d+)/i,
+  ];
+  for (const p of patterns) {
+    const m = bio.match(p);
+    if (m) {
+      const digits = (m[1] || m[0]).replace(/\D/g, "");
+      if (digits.length >= 10 && digits.length <= 13) return digits;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Tenta extrair email da página inicial do site externo do perfil (quando IG tem link).
+ * Usa Apify web-scraper; só chama se o perfil tiver website e ainda não tivermos email.
+ */
+async function extractEmailFromWebsite(url: string): Promise<string | undefined> {
+  try {
+    const r = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; ContactScraper/1.0)" },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!r.ok) return undefined;
+    const html = await r.text();
+    return extractEmailFromBio(html);
+  } catch {
+    return undefined;
+  }
 }
 
 export async function extractFacebookGroupMembers(groupUrl: string, maxMembers = 500): Promise<FacebookGroupMember[]> {

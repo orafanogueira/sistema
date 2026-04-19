@@ -36,10 +36,28 @@ export async function POST(req: Request) {
 
     const target = max_followers || 500;
 
-    // quando filtra "só com contato", precisamos superextrair (5-15% dos perfis têm contato)
-    // pega até 10x mais seguidores e vai enriquecendo em ondas até atingir o alvo
-    const extractMultiplier = only_with_contact ? 10 : 1;
-    const rawFollowers = await extractInstagramFollowers(username, target * extractMultiplier);
+    // aceita múltiplos @ separados por vírgula/espaço/nova linha
+    // dica pro usuário: quanto mais perfis concorrentes, maior a base de seguidores com contato
+    const usernames = username
+      .split(/[,;\s\n]+/)
+      .map((u: string) => u.trim())
+      .filter(Boolean);
+
+    // extrai de todos e junta (dedup por username)
+    const rawMap = new Map<string, Awaited<ReturnType<typeof extractInstagramFollowers>>[number]>();
+    for (const u of usernames) {
+      try {
+        // oversample 30x quando só com contato (3-5% dos perfis têm contato público)
+        const perProfileTarget = only_with_contact
+          ? Math.ceil((target * 30) / usernames.length)
+          : Math.ceil(target / usernames.length);
+        const list = await extractInstagramFollowers(u, perProfileTarget);
+        for (const f of list) {
+          if (!rawMap.has(f.username)) rawMap.set(f.username, f);
+        }
+      } catch {}
+    }
+    const rawFollowers = Array.from(rawMap.values());
 
     // sem enriquecimento: retorna direto
     if (!enrich || rawFollowers.length === 0) {
@@ -47,16 +65,20 @@ export async function POST(req: Request) {
         followers: rawFollowers.slice(0, target),
         total: Math.min(rawFollowers.length, target),
         enriched: false,
+        extracted_raw: rawFollowers.length,
+        usernames_used: usernames,
       });
     }
 
     // com enriquecimento: processa em ondas se filtro "só com contato"
     if (only_with_contact) {
       const withContact: typeof rawFollowers = [];
-      const waveSize = 100; // enriquecer 100 por vez
+      const waveSize = 50;
+      let scanned = 0;
 
       for (let i = 0; i < rawFollowers.length && withContact.length < target; i += waveSize) {
         const wave = rawFollowers.slice(i, i + waveSize);
+        scanned += wave.length;
         const enrichedWave = await enrichFollowersWithContact(wave, { onlyWithContact: true });
         withContact.push(...enrichedWave);
         if (withContact.length >= target) break;
@@ -70,6 +92,9 @@ export async function POST(req: Request) {
         with_phone: final.filter((f) => f.phone).length,
         enriched: true,
         extracted_raw: rawFollowers.length,
+        scanned_profiles: scanned,
+        conversion_rate: scanned > 0 ? ((final.length / scanned) * 100).toFixed(1) + "%" : "0%",
+        usernames_used: usernames,
       });
     }
 
@@ -82,6 +107,8 @@ export async function POST(req: Request) {
       with_email: enriched.filter((f) => f.email).length,
       with_phone: enriched.filter((f) => f.phone).length,
       enriched: true,
+      extracted_raw: rawFollowers.length,
+      usernames_used: usernames,
     });
   } catch (e: unknown) {
     return new NextResponse(e instanceof Error ? e.message : "erro", { status: 500 });

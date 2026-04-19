@@ -39,6 +39,10 @@ export function ExtratoresUI() {
     with_email?: number;
     with_phone?: number;
     enriched?: boolean;
+    extracted_raw?: number;
+    scanned_profiles?: number;
+    conversion_rate?: string;
+    usernames_used?: string[];
   } | null>(null);
 
   // Apollo LinkedIn
@@ -150,9 +154,12 @@ export function ExtratoresUI() {
             <CardContent className="space-y-3">
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2">
-                  <Label>@ do perfil</Label>
-                  <Input className="mt-1" placeholder="@loja_exemplo ou loja_exemplo"
+                  <Label>@ do perfil (pode colocar vários separados por vírgula)</Label>
+                  <Input className="mt-1" placeholder="@loja1, @loja2, @loja3"
                     value={igForm.username} onChange={(e) => setIgForm({ ...igForm, username: e.target.value })} />
+                  <div className="text-[10px] text-muted-foreground mt-1">
+                    Dica: pra achar mais contatos, coloque 3-5 concorrentes do mesmo nicho. O sistema junta e dedup.
+                  </div>
                 </div>
                 <div>
                   <Label>Máx resultados</Label>
@@ -230,6 +237,17 @@ export function ExtratoresUI() {
                 {igResult.followers && igResult.followers.length > 0 && !igResult.enriched && (
                   <div className="text-[10px] text-amber-400 mt-2">
                     ⚠️ Pra disparar WhatsApp/Email, marque a opção &quot;Buscar email e telefone&quot; antes de extrair.
+                  </div>
+                )}
+                {igResult.enriched && igResult.scanned_profiles && (
+                  <div className="text-[11px] text-muted-foreground mt-2 border border-border rounded p-2 bg-background/40">
+                    📊 <b>Stats da extração:</b> escaneei {igResult.scanned_profiles} perfis,
+                    achei {igResult.total} com contato ({igResult.conversion_rate} taxa de conversão).
+                    {igResult.total && igResult.scanned_profiles && igResult.total < (igForm.max * 0.5) && (
+                      <span className="text-amber-400 block mt-1">
+                        💡 Pra conseguir mais contatos, adicione mais perfis concorrentes no campo &quot;@&quot; separados por vírgula.
+                      </span>
+                    )}
                   </div>
                 )}
               </CardHeader>
