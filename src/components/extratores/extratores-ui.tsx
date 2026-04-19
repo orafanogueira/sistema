@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Instagram, Facebook, Download, Search, Users, Linkedin, MessageSquare, Mail } from "lucide-react";
 import { toast } from "@/components/ui/toaster";
 import { ModalDisparo, type DisparoTipo } from "./modal-disparo";
+import { FacebookGroupsUI } from "@/components/facebook-groups/facebook-groups-ui";
 
 type Tab = "instagram" | "facebook" | "apollo";
 
@@ -72,16 +73,6 @@ export function ExtratoresUI() {
     } finally { setLoading(false); }
   };
 
-  // Facebook
-  const [fbForm, setFbForm] = useState({ group_url: "", max: 200 });
-  const [fbResult, setFbResult] = useState<{
-    members?: Array<Record<string, unknown>>;
-    total?: number;
-    with_email?: number;
-    with_phone?: number;
-    active_posters?: number;
-  } | null>(null);
-
   const extrairIG = async () => {
     if (!igForm.username.trim()) return toast.error("Informe o @ do perfil");
     setLoading(true); setIgResult(null);
@@ -103,23 +94,6 @@ export function ExtratoresUI() {
         ? ` · ${data.with_email || 0} com email · ${data.with_phone || 0} com telefone`
         : "";
       toast.success(`${data.total || 0} resultados extraídos${detalhes}`);
-    } catch (e: unknown) {
-      toast.error("Erro", e instanceof Error ? e.message : "tente novamente");
-    } finally { setLoading(false); }
-  };
-
-  const extrairFB = async () => {
-    if (!fbForm.group_url.trim()) return toast.error("Informe a URL do grupo");
-    setLoading(true); setFbResult(null);
-    try {
-      const r = await fetch("/api/extratores/facebook", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ group_url: fbForm.group_url, max_members: fbForm.max }),
-      });
-      if (!r.ok) throw new Error(await r.text());
-      const data = await r.json();
-      setFbResult(data);
-      toast.success(`${data.total || 0} membros extraídos`);
     } catch (e: unknown) {
       toast.error("Erro", e instanceof Error ? e.message : "tente novamente");
     } finally { setLoading(false); }
@@ -338,85 +312,7 @@ export function ExtratoresUI() {
         </div>
       )}
 
-      {tab === "facebook" && (
-        <div className="space-y-4">
-          <Card>
-            <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Facebook className="h-4 w-4 text-blue-500" /> Extrator Facebook Groups</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2">
-                  <Label>URL do grupo</Label>
-                  <Input className="mt-1" placeholder="https://www.facebook.com/groups/nome-do-grupo"
-                    value={fbForm.group_url} onChange={(e) => setFbForm({ ...fbForm, group_url: e.target.value })} />
-                </div>
-                <div>
-                  <Label>Máx membros</Label>
-                  <Input type="number" className="mt-1" min={10} max={5000} value={fbForm.max}
-                    onChange={(e) => setFbForm({ ...fbForm, max: Number(e.target.value) })} />
-                </div>
-              </div>
-              <div className="text-[10px] text-muted-foreground border border-border rounded p-2 bg-background/40">
-                ℹ️ Grupos do FB limitaram extração direta de membros. A estratégia é puxar
-                <b> posts recentes</b> e pegar autores + comentadores (pessoas ativas = leads quentes).
-                Email/telefone são extraídos do texto dos posts quando a pessoa deixa contato.
-                <br />~$1-2 por 1000 posts processados.
-              </div>
-              <Button onClick={extrairFB} disabled={loading} className="w-full">
-                {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Extraindo (pode levar 2-5min)...</> : <><Search className="h-4 w-4" /> Extrair audiência ativa</>}
-              </Button>
-            </CardContent>
-          </Card>
-
-          {fbResult && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <CardTitle className="text-sm">{fbResult.total || 0} membros</CardTitle>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Button size="sm" variant="outline" onClick={() =>
-                      downloadCSV((fbResult.members || []) as Array<Record<string, unknown>>, "facebook-group-members")}>
-                      <Download className="h-3 w-3" /> CSV
-                    </Button>
-                    {fbResult.members && fbResult.members.length > 0 && (
-                      <>
-                        <Button size="sm" onClick={() => abrirDisparo("whatsapp", fbResult.members as Array<Record<string, unknown>>)}>
-                          <MessageSquare className="h-3 w-3" /> WhatsApp IA
-                        </Button>
-                        <Button size="sm" onClick={() => abrirDisparo("email", fbResult.members as Array<Record<string, unknown>>)}>
-                          <Mail className="h-3 w-3" /> Email IA
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-                <div className="text-[10px] text-amber-400 mt-2">
-                  ⚠️ Facebook Groups só retorna nome e URL do perfil. O disparo só funciona em membros que tiverem telefone/email no bio (vai pular os demais).
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="max-h-[400px] overflow-y-auto">
-                  <table className="w-full text-xs">
-                    <thead className="border-b text-[10px] uppercase text-muted-foreground sticky top-0 bg-card">
-                      <tr><th className="p-2 text-left">#</th><th className="p-2 text-left">Nome</th><th className="p-2 text-left">Perfil</th></tr>
-                    </thead>
-                    <tbody>
-                      {((fbResult.members || []) as Array<Record<string, unknown>>).slice(0, 200).map((m, i) => (
-                        <tr key={i} className="border-b border-border">
-                          <td className="p-2 text-muted-foreground">{i + 1}</td>
-                          <td className="p-2 font-semibold">{String(m.name || "")}</td>
-                          <td className="p-2">
-                            {m.profileUrl ? <a href={String(m.profileUrl)} target="_blank" rel="noopener" className="text-cyan text-[10px] hover:underline">Ver perfil</a> : null}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
+      {tab === "facebook" && <FacebookGroupsUI />}
 
       <ModalDisparo
         open={modalDisparo.aberto}
