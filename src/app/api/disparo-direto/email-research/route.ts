@@ -197,7 +197,7 @@ export async function POST(req: Request) {
   for (const contato of validos) {
     if (jaEnviadosSet.has(contato.email!)) { pulados++; continue; }
 
-    const nome = contato.nome || contato.name || `${contato.first_name || ""} ${contato.last_name || ""}`.trim() || contato.email;
+    const nome: string = contato.nome || contato.name || `${contato.first_name || ""} ${contato.last_name || ""}`.trim() || contato.email || "amigo";
     const empresa = contato.organization_name || "";
     const cidade = [contato.city, contato.state].filter(Boolean).join(", ");
     const cargo = contato.title || "";
