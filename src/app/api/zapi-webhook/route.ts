@@ -234,11 +234,50 @@ export async function POST(req: Request) {
 
     if (numero?.zapi_instance_id && numero?.zapi_token) {
       const clientToken = process.env.ZAPI_CLIENT_TOKEN || "";
-      await fetch(`https://api.z-api.io/instances/${numero.zapi_instance_id}/token/${numero.zapi_token}/send-text`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Client-Token": clientToken },
-        body: JSON.stringify({ phone, message: resposta }),
-      }).catch(() => {});
+
+      // responde pro lead
+      try {
+        await fetch(`https://api.z-api.io/instances/${numero.zapi_instance_id}/token/${numero.zapi_token}/send-text`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Client-Token": clientToken },
+          body: JSON.stringify({ phone, message: resposta }),
+        });
+      } catch {}
+
+      // NOTIFICA RAFA: envia resumo pro grupo e/ou número pessoal
+      const leadNome = lead?.nome || msgDisparo.telefone_destino || phone;
+      const resumo = `🤖 *IA Autoatendimento*\n\n👤 Lead: *${leadNome}*\n📱 Tel: ${phone}\n${novaEtapa ? `📊 Etapa: *${novaEtapa}*\n` : ""}\n💬 Lead disse: "${text.slice(0, 150)}"\n🤖 IA respondeu: "${resposta.slice(0, 150)}"`;
+
+      // envia pro grupo (via invite code)
+      const inviteCode = process.env.WHATSAPP_GRUPO_NOTIFY;
+      if (inviteCode) {
+        try {
+          const metaRes = await fetch(`https://api.z-api.io/instances/${numero.zapi_instance_id}/token/${numero.zapi_token}/invite-metadata/${inviteCode}`, {
+            headers: { "Client-Token": clientToken },
+          });
+          if (metaRes.ok) {
+            const meta = await metaRes.json();
+            const groupPhone = meta.phone || meta.id || meta.chatId;
+            if (groupPhone) {
+              await fetch(`https://api.z-api.io/instances/${numero.zapi_instance_id}/token/${numero.zapi_token}/send-text`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Client-Token": clientToken },
+                body: JSON.stringify({ phone: groupPhone, message: resumo }),
+              });
+            }
+          }
+        } catch {}
+      }
+
+      // envia pro número pessoal do Rafa
+      const rafaPhone = process.env.WHATSAPP_RAFA_PHONE || "5581984576173";
+      try {
+        await fetch(`https://api.z-api.io/instances/${numero.zapi_instance_id}/token/${numero.zapi_token}/send-text`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Client-Token": clientToken },
+          body: JSON.stringify({ phone: rafaPhone, message: resumo }),
+        });
+      } catch {}
     }
   }
 
