@@ -9,7 +9,19 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new NextResponse("unauthorized", { status: 401 });
 
-  const { tipo, job_titles, location, industry, company_name, per_page, linkedin_url, first_name, last_name } = await req.json();
+  const {
+    tipo,
+    job_titles,
+    location,
+    industry,
+    industry_keywords,
+    company_name,
+    keywords,
+    per_page,
+    linkedin_url,
+    first_name,
+    last_name,
+  } = await req.json();
 
   try {
     if (tipo === "empresas") {
@@ -25,7 +37,11 @@ export async function POST(req: Request) {
     // default: busca pessoas
     const result = await searchPeople({
       job_titles: job_titles ? (Array.isArray(job_titles) ? job_titles : [job_titles]) : [],
-      location, industry, company_name,
+      location,
+      industry,
+      industry_keywords,
+      company_name,
+      keywords,
       per_page: per_page || 25,
     });
     return NextResponse.json(result);

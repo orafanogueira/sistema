@@ -8,6 +8,7 @@ import { Loader2, Search, Mail, MessageSquare, Linkedin, Users, Building2, Downl
 import { toast } from "@/components/ui/toaster";
 import { ModalDisparo } from "@/components/extratores/modal-disparo";
 import { ModalResearchEmail } from "./modal-research-email";
+import { ModalEmailLinkedIn } from "./modal-email-linkedin";
 
 interface ApolloContato {
   id?: string;
@@ -46,10 +47,11 @@ const INDUSTRIAS_SUGERIDAS = [
 
 export function ApolloUI() {
   const [busca, setBusca] = useState({
-    job_titles: "",
-    location: "Brazil",
-    company_name: "",
-    industry: "",
+    nicho: "",                    // nicho/segmento (lojas de carros, marketing digital...)
+    job_titles: "",               // cargos
+    location: "Brazil",           // localização
+    company_name: "",             // empresa específica (opcional)
+    keywords: "",                 // termo livre (opcional)
     per_page: 25,
   });
   const [loading, setLoading] = useState(false);
@@ -61,10 +63,11 @@ export function ApolloUI() {
     contatos: Array<Record<string, unknown>>;
   }>({ aberto: false, tipo: "email", contatos: [] });
   const [modalResearch, setModalResearch] = useState(false);
+  const [modalLinkedIn, setModalLinkedIn] = useState(false);
 
   const buscar = async () => {
-    if (!busca.job_titles && !busca.company_name) {
-      return toast.error("Informe cargo ou empresa");
+    if (!busca.nicho && !busca.job_titles && !busca.company_name && !busca.keywords) {
+      return toast.error("Informe nicho, cargo ou empresa");
     }
     setLoading(true);
     setContatos([]);
@@ -77,7 +80,8 @@ export function ApolloUI() {
           job_titles: busca.job_titles.split(",").map((x) => x.trim()).filter(Boolean),
           location: busca.location,
           company_name: busca.company_name,
-          industry: busca.industry || undefined,
+          industry_keywords: busca.nicho || undefined,
+          keywords: busca.keywords || undefined,
           per_page: busca.per_page,
         }),
       });
@@ -140,18 +144,31 @@ export function ApolloUI() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          <div>
+            <Label>🎯 Nicho / segmento da empresa</Label>
+            <Input
+              className="mt-1"
+              placeholder="Ex: lojas de carros, marketing digital, clínicas, e-commerce..."
+              value={busca.nicho}
+              onChange={(e) => setBusca({ ...busca, nicho: e.target.value })}
+            />
+            <div className="text-[10px] text-muted-foreground mt-1">
+              Filtra por palavra-chave do segmento da empresa do contato
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Cargos (separe por vírgula)</Label>
+              <Label>👔 Cargo (separe por vírgula)</Label>
               <Input
                 className="mt-1"
-                placeholder="CEO, Dono de loja de carros, Diretor comercial"
+                placeholder="CEO, Dono, Diretor comercial..."
                 value={busca.job_titles}
                 onChange={(e) => setBusca({ ...busca, job_titles: e.target.value })}
               />
             </div>
             <div>
-              <Label>Localização</Label>
+              <Label>📍 Localização</Label>
               <Input
                 className="mt-1"
                 placeholder="São Paulo, Brazil"
@@ -161,18 +178,27 @@ export function ApolloUI() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2">
-              <Label>Empresa (opcional)</Label>
+          <div className="grid grid-cols-[1fr_1fr_100px] gap-3">
+            <div>
+              <Label>🏢 Empresa específica (opcional)</Label>
               <Input
                 className="mt-1"
-                placeholder="Ex: Localiza, Movida..."
+                placeholder="Ex: Localiza, Movida"
                 value={busca.company_name}
                 onChange={(e) => setBusca({ ...busca, company_name: e.target.value })}
               />
             </div>
             <div>
-              <Label>Máx resultados</Label>
+              <Label>🔎 Termo livre (opcional)</Label>
+              <Input
+                className="mt-1"
+                placeholder="palavra-chave"
+                value={busca.keywords}
+                onChange={(e) => setBusca({ ...busca, keywords: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>Máx</Label>
               <Input
                 type="number"
                 className="mt-1"
@@ -185,7 +211,7 @@ export function ApolloUI() {
           </div>
 
           <div>
-            <Label className="text-[10px]">Cargos sugeridos</Label>
+            <Label className="text-[10px]">Cargos sugeridos (clique pra adicionar)</Label>
             <div className="flex flex-wrap gap-1 mt-1">
               {CARGOS_SUGERIDOS.map((c) => (
                 <Button
@@ -216,7 +242,7 @@ export function ApolloUI() {
 
           <div className="text-[10px] text-muted-foreground">
             Apollo.io tem banco global de +275M de profissionais do LinkedIn com email e telefone.
-            Plano grátis: 50 créditos/mês (1 crédito = 1 email revelado). Configure <code>APOLLO_API_KEY</code> no Vercel.
+            Plano grátis: 50 créditos/mês (1 crédito = 1 email revelado).
           </div>
         </CardContent>
       </Card>
@@ -245,11 +271,19 @@ export function ApolloUI() {
                 </Button>
                 <Button
                   size="sm"
+                  onClick={() => setModalLinkedIn(true)}
+                  disabled={comEmail === 0}
+                  className="bg-gradient-to-r from-[#0A66C2] to-blue-700 hover:from-[#0A66C2]/90 text-white"
+                >
+                  <Linkedin className="h-3 w-3" /> Email LinkedIn (alta abertura)
+                </Button>
+                <Button
+                  size="sm"
                   onClick={() => setModalResearch(true)}
                   disabled={comEmail === 0}
                   className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
                 >
-                  <Brain className="h-3 w-3" /> Email com Research Profundo
+                  <Brain className="h-3 w-3" /> Email Research Profundo
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => abrirDisparo("email")} disabled={comEmail === 0}>
                   <Mail className="h-3 w-3" /> Email simples
@@ -320,6 +354,12 @@ export function ApolloUI() {
       <ModalResearchEmail
         open={modalResearch}
         onClose={() => setModalResearch(false)}
+        contatos={contatos}
+      />
+
+      <ModalEmailLinkedIn
+        open={modalLinkedIn}
+        onClose={() => setModalLinkedIn(false)}
         contatos={contatos}
       />
     </div>
