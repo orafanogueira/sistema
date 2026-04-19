@@ -78,60 +78,90 @@ export interface InstagramFollower {
 
 export async function extractInstagramFollowers(username: string, maxFollowers = 500): Promise<InstagramFollower[]> {
   const clean = cleanUsername(username);
+  const url = `https://www.instagram.com/${clean}/`;
 
-  // Tenta actors específicos pra followers (community actors)
-  const actors = [
-    "reGe1ST3r~instagram-followers-scraper",
-    "apify~instagram-followers-scraper",
-    "zuzka~instagram-followers-scraper",
-  ];
+  // O Apify não tem mais actor público estável de "followers" (community actors foram removidos).
+  // A realidade: extrair quem INTERAGE (comentários/curtidas) nos posts recentes.
+  // Quanto mais posts, mais comentadores únicos captamos.
 
-  let lastErr = "";
-  for (const actor of actors) {
+  // Estratégia: pedir MUITOS posts pra pegar o máximo de comentadores únicos.
+  const postsNeeded = Math.min(Math.ceil(maxFollowers / 15), 100); // ~15 comentários por post
+
+  const profiles = new Map<string, InstagramFollower>();
+  const errors: string[] = [];
+
+  // 1ª tentativa: actor principal apify~instagram-scraper com posts + latestComments
+  try {
+    const r = await fetch(`${BASE}/acts/apify~instagram-scraper/run-sync-get-dataset-items?token=${apiKey()}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        directUrls: [url],
+        resultsType: "posts",
+        resultsLimit: postsNeeded,
+        addParentData: false,
+      }),
+    });
+
+    if (r.ok) {
+      const posts = (await r.json()) as Array<Record<string, unknown>>;
+      for (const post of posts) {
+        const comments = (post.latestComments || []) as Array<{ ownerUsername?: string; ownerFullName?: string }>;
+        for (const c of comments) {
+          if (c.ownerUsername && !profiles.has(c.ownerUsername)) {
+            profiles.set(c.ownerUsername, { username: c.ownerUsername, fullName: c.ownerFullName });
+          }
+        }
+        // alguns posts trazem taggedUsers tbm
+        const tagged = (post.taggedUsers || []) as Array<{ username?: string; full_name?: string }>;
+        for (const t of tagged) {
+          if (t.username && !profiles.has(t.username)) {
+            profiles.set(t.username, { username: t.username, fullName: t.full_name });
+          }
+        }
+      }
+    } else {
+      errors.push(`instagram-scraper posts: ${r.status} ${(await r.text()).slice(0, 120)}`);
+    }
+  } catch (e: unknown) {
+    errors.push(`instagram-scraper posts: ${e instanceof Error ? e.message : "erro"}`);
+  }
+
+  // 2ª tentativa: puxa comments separadamente (mais comentadores por post)
+  if (profiles.size < maxFollowers) {
     try {
-      const r = await fetch(`${BASE}/acts/${actor}/run-sync-get-dataset-items?token=${apiKey()}`, {
+      const r = await fetch(`${BASE}/acts/apify~instagram-comment-scraper/run-sync-get-dataset-items?token=${apiKey()}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          usernames: [clean],
-          resultsLimit: maxFollowers,
+          directUrls: [url],
+          resultsLimit: maxFollowers * 2,
         }),
       });
-      if (r.ok) return r.json();
-      lastErr = `${actor}: ${r.status}`;
-    } catch (e: unknown) {
-      lastErr = `${actor}: ${e instanceof Error ? e.message : "erro"}`;
-    }
-  }
-
-  // Fallback: usa instagram-scraper pegando posts e extrai quem interagiu
-  const r = await fetch(`${BASE}/acts/apify~instagram-scraper/run-sync-get-dataset-items?token=${apiKey()}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      directUrls: [`https://www.instagram.com/${clean}/`],
-      resultsType: "posts",
-      resultsLimit: Math.min(maxFollowers, 50),
-    }),
-  });
-
-  if (!r.ok) {
-    const txt = await r.text();
-    throw new Error(`Nenhum actor de followers funcionou (${lastErr}). Fallback posts: ${r.status}: ${txt.slice(0, 150)}`);
-  }
-
-  const posts = await r.json();
-  // extrai perfis únicos que comentaram/curtiram
-  const profiles = new Map<string, InstagramFollower>();
-  for (const post of posts as Array<Record<string, unknown>>) {
-    const comments = (post.latestComments || []) as Array<{ ownerUsername?: string; ownerFullName?: string }>;
-    for (const c of comments) {
-      if (c.ownerUsername && !profiles.has(c.ownerUsername)) {
-        profiles.set(c.ownerUsername, { username: c.ownerUsername, fullName: c.ownerFullName });
+      if (r.ok) {
+        const comments = (await r.json()) as Array<Record<string, unknown>>;
+        for (const c of comments) {
+          const u = (c.ownerUsername || c.username) as string;
+          const n = (c.ownerFullName || c.fullName) as string;
+          if (u && !profiles.has(u)) {
+            profiles.set(u, { username: u, fullName: n });
+          }
+        }
+      } else {
+        errors.push(`comment-scraper: ${r.status}`);
       }
+    } catch (e: unknown) {
+      errors.push(`comment-scraper: ${e instanceof Error ? e.message : "erro"}`);
     }
   }
-  return Array.from(profiles.values());
+
+  const result = Array.from(profiles.values()).slice(0, maxFollowers);
+
+  if (result.length === 0) {
+    throw new Error(`Não consegui extrair interações de @${clean}. Erros: ${errors.join(" | ").slice(0, 300)}`);
+  }
+
+  return result;
 }
 
 /**

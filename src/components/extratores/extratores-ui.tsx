@@ -176,9 +176,16 @@ export function ExtratoresUI() {
                   </Button>
                   <Button size="sm" variant={igForm.tipo === "seguidores" ? "default" : "outline"}
                     onClick={() => setIgForm({ ...igForm, tipo: "seguidores" })}>
-                    <Search className="h-3 w-3" /> Lista de seguidores
+                    <Search className="h-3 w-3" /> Audiência engajada
                   </Button>
                 </div>
+                {igForm.tipo === "seguidores" && (
+                  <div className="text-[10px] text-muted-foreground mt-2 border border-border rounded p-2 bg-background/40">
+                    ℹ️ O Instagram não permite extrair lista pura de seguidores.
+                    O que funciona hoje é extrair <b>quem comenta/interage</b> nos posts — pessoas mais engajadas e propensas a responder.
+                    Pra aumentar volume, use <b>múltiplos @ concorrentes</b> no campo acima.
+                  </div>
+                )}
               </div>
               {igForm.tipo === "seguidores" && (
                 <div className="space-y-2 border border-border rounded p-3 bg-background/40">
