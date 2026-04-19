@@ -11,6 +11,14 @@ function apiKey(): string {
   return k;
 }
 
+function cleanUsername(input: string): string {
+  let clean = input.trim();
+  const match = clean.match(/instagram\.com\/([^/?]+)/);
+  if (match) clean = match[1];
+  clean = clean.replace("@", "").replace(/\//g, "");
+  return clean;
+}
+
 export interface InstagramProfile {
   username: string;
   fullName: string;
@@ -34,19 +42,16 @@ export interface FacebookGroupMember {
   bio?: string;
 }
 
-/**
- * Extrai perfil + seguidores de um @ do Instagram.
- * Actor: apify/instagram-profile-scraper (perfil)
- * Actor: apify/instagram-followers-scraper (seguidores)
- */
 export async function extractInstagramProfile(username: string): Promise<InstagramProfile[]> {
-  const clean = username.replace("@", "").trim();
+  const clean = cleanUsername(username);
 
-  const r = await fetch(`${BASE}/acts/apify~instagram-profile-scraper/run-sync-get-dataset-items?token=${apiKey()}`, {
+  const r = await fetch(`${BASE}/acts/apify~instagram-scraper/run-sync-get-dataset-items?token=${apiKey()}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      usernames: [clean],
+      directUrls: [`https://www.instagram.com/${clean}/`],
+      resultsType: "details",
+      resultsLimit: 1,
     }),
   });
 
@@ -59,13 +64,14 @@ export async function extractInstagramProfile(username: string): Promise<Instagr
 }
 
 export async function extractInstagramFollowers(username: string, maxFollowers = 500): Promise<Array<{ username: string; fullName?: string; profilePicUrl?: string }>> {
-  const clean = username.replace("@", "").trim();
+  const clean = cleanUsername(username);
 
-  const r = await fetch(`${BASE}/acts/apify~instagram-followers-scraper/run-sync-get-dataset-items?token=${apiKey()}`, {
+  const r = await fetch(`${BASE}/acts/apify~instagram-scraper/run-sync-get-dataset-items?token=${apiKey()}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      usernames: [clean],
+      directUrls: [`https://www.instagram.com/${clean}/`],
+      resultsType: "followers",
       resultsLimit: maxFollowers,
     }),
   });
@@ -78,10 +84,6 @@ export async function extractInstagramFollowers(username: string, maxFollowers =
   return r.json();
 }
 
-/**
- * Extrai membros de grupo do Facebook.
- * Actor: apify/facebook-groups-scraper
- */
 export async function extractFacebookGroupMembers(groupUrl: string, maxMembers = 500): Promise<FacebookGroupMember[]> {
   const r = await fetch(`${BASE}/acts/apify~facebook-groups-scraper/run-sync-get-dataset-items?token=${apiKey()}`, {
     method: "POST",
