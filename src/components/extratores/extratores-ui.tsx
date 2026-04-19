@@ -4,18 +4,58 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Instagram, Facebook, Download, Search, Users } from "lucide-react";
+import { Loader2, Instagram, Facebook, Download, Search, Users, Linkedin } from "lucide-react";
 import { toast } from "@/components/ui/toaster";
 
-type Tab = "instagram" | "facebook";
+type Tab = "instagram" | "facebook" | "apollo";
 
 export function ExtratoresUI() {
   const [tab, setTab] = useState<Tab>("instagram");
   const [loading, setLoading] = useState(false);
 
   // Instagram
-  const [igForm, setIgForm] = useState({ username: "", max: 200, tipo: "seguidores" });
-  const [igResult, setIgResult] = useState<{ profiles?: Array<Record<string, unknown>>; followers?: Array<Record<string, unknown>>; total?: number } | null>(null);
+  const [igForm, setIgForm] = useState({
+    username: "",
+    max: 200,
+    tipo: "seguidores",
+    enrich: false,
+    onlyWithContact: false,
+  });
+  const [igResult, setIgResult] = useState<{
+    profiles?: Array<Record<string, unknown>>;
+    followers?: Array<Record<string, unknown>>;
+    total?: number;
+    with_email?: number;
+    with_phone?: number;
+    enriched?: boolean;
+  } | null>(null);
+
+  // Apollo LinkedIn
+  const [apolloForm, setApolloForm] = useState({ job_titles: "", location: "Brazil", company_name: "", per_page: 25 });
+  const [apolloResult, setApolloResult] = useState<{ contacts?: Array<Record<string, unknown>>; total?: number } | null>(null);
+
+  const buscarApollo = async () => {
+    if (!apolloForm.job_titles && !apolloForm.company_name) return toast.error("Informe cargo ou empresa");
+    setLoading(true); setApolloResult(null);
+    try {
+      const r = await fetch("/api/extratores/apollo", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tipo: "pessoas",
+          job_titles: apolloForm.job_titles,
+          location: apolloForm.location,
+          company_name: apolloForm.company_name,
+          per_page: apolloForm.per_page,
+        }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const data = await r.json();
+      setApolloResult(data);
+      toast.success(`${data.contacts?.length || 0} contatos encontrados (${data.total} total)`);
+    } catch (e: unknown) {
+      toast.error("Erro", e instanceof Error ? e.message : "tente novamente");
+    } finally { setLoading(false); }
+  };
 
   // Facebook
   const [fbForm, setFbForm] = useState({ group_url: "", max: 200 });
@@ -31,12 +71,17 @@ export function ExtratoresUI() {
           username: igForm.username,
           max_followers: igForm.max,
           tipo: igForm.tipo === "perfil" ? "perfil" : "seguidores",
+          enrich: igForm.tipo === "seguidores" ? igForm.enrich : false,
+          only_with_contact: igForm.tipo === "seguidores" ? igForm.onlyWithContact : false,
         }),
       });
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
       setIgResult(data);
-      toast.success(`${data.total || 0} resultados extraídos`);
+      const detalhes = data.enriched
+        ? ` · ${data.with_email || 0} com email · ${data.with_phone || 0} com telefone`
+        : "";
+      toast.success(`${data.total || 0} resultados extraídos${detalhes}`);
     } catch (e: unknown) {
       toast.error("Erro", e instanceof Error ? e.message : "tente novamente");
     } finally { setLoading(false); }
@@ -82,6 +127,9 @@ export function ExtratoresUI() {
         <Button variant={tab === "facebook" ? "default" : "outline"} onClick={() => setTab("facebook")}>
           <Facebook className="h-4 w-4" /> Facebook Groups
         </Button>
+        <Button variant={tab === "apollo" ? "default" : "outline"} onClick={() => setTab("apollo")}>
+          <Linkedin className="h-4 w-4" /> Apollo LinkedIn
+        </Button>
       </div>
 
       {tab === "instagram" && (
@@ -114,6 +162,28 @@ export function ExtratoresUI() {
                   </Button>
                 </div>
               </div>
+              {igForm.tipo === "seguidores" && (
+                <div className="space-y-2 border border-border rounded p-3 bg-background/40">
+                  <label className="flex items-center gap-2 text-xs cursor-pointer">
+                    <input type="checkbox" checked={igForm.enrich}
+                      onChange={(e) => setIgForm({ ...igForm, enrich: e.target.checked })} />
+                    <span>📧 Buscar email e telefone de cada seguidor</span>
+                  </label>
+                  {igForm.enrich && (
+                    <>
+                      <label className="flex items-center gap-2 text-xs cursor-pointer ml-5">
+                        <input type="checkbox" checked={igForm.onlyWithContact}
+                          onChange={(e) => setIgForm({ ...igForm, onlyWithContact: e.target.checked })} />
+                        <span>Retornar apenas seguidores com contato (email ou telefone)</span>
+                      </label>
+                      <div className="text-[10px] text-muted-foreground ml-5">
+                        ⚠️ Email/telefone só aparecem em perfis Business/Creator (cerca de 5-15% dos seguidores).
+                        Enriquecimento demora +1min a cada 100 seguidores e custa ~$0.50/100.
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
               <div className="text-[10px] text-muted-foreground">
                 Perfil: nome, bio, email, website, seguidores, posts. Seguidores: lista com username + nome de cada.
                 ~$1-2 por 1000 seguidores extraídos.
@@ -156,9 +226,27 @@ export function ExtratoresUI() {
                 )}
                 {igResult.followers && igResult.followers.length > 0 && (
                   <div className="max-h-[400px] overflow-y-auto">
+                    {igResult.enriched && (
+                      <div className="flex gap-2 mb-2 text-[11px]">
+                        <Badge variant="success">📧 {igResult.with_email || 0} com email</Badge>
+                        <Badge variant="secondary">📱 {igResult.with_phone || 0} com telefone</Badge>
+                      </div>
+                    )}
                     <table className="w-full text-xs">
                       <thead className="border-b text-[10px] uppercase text-muted-foreground sticky top-0 bg-card">
-                        <tr><th className="p-2 text-left">#</th><th className="p-2 text-left">Username</th><th className="p-2 text-left">Nome</th></tr>
+                        <tr>
+                          <th className="p-2 text-left">#</th>
+                          <th className="p-2 text-left">Username</th>
+                          <th className="p-2 text-left">Nome</th>
+                          {igResult.enriched && (
+                            <>
+                              <th className="p-2 text-left">Email</th>
+                              <th className="p-2 text-left">Telefone</th>
+                              <th className="p-2 text-left">Website</th>
+                              <th className="p-2 text-left">Tipo</th>
+                            </>
+                          )}
+                        </tr>
                       </thead>
                       <tbody>
                         {(igResult.followers as Array<Record<string, unknown>>).slice(0, 200).map((f, i) => (
@@ -166,6 +254,14 @@ export function ExtratoresUI() {
                             <td className="p-2 text-muted-foreground">{i + 1}</td>
                             <td className="p-2 font-mono">@{String(f.username || "")}</td>
                             <td className="p-2">{String(f.fullName || f.full_name || "")}</td>
+                            {igResult.enriched && (
+                              <>
+                                <td className="p-2 text-[10px]">{f.email ? <span className="text-green-400">{String(f.email)}</span> : <span className="text-muted-foreground">—</span>}</td>
+                                <td className="p-2 text-[10px]">{f.phone ? <span className="text-cyan">{String(f.phone)}</span> : <span className="text-muted-foreground">—</span>}</td>
+                                <td className="p-2 text-[10px]">{f.website ? <a href={String(f.website)} target="_blank" rel="noopener" className="text-cyan hover:underline">link</a> : <span className="text-muted-foreground">—</span>}</td>
+                                <td className="p-2">{f.isBusinessAccount ? <Badge variant="secondary" className="text-[9px]">Business</Badge> : null}</td>
+                              </>
+                            )}
                           </tr>
                         ))}
                       </tbody>
