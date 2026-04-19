@@ -228,6 +228,41 @@ export async function POST(req: Request) {
     });
   }
 
+  // INTEGRAÇÃO GOOGLE CALENDAR: se o texto do lead tem horário → tenta agendar automaticamente
+  // Antes de responder com o que a IA gerou, se detectar intenção de horário, chama /agendar
+  let respostaFinal = resposta;
+  let agendamentoCriado: { meet_link?: string; data_hora?: string } | null = null;
+
+  const temHorarioProposto = /\d{1,2}\s?h|\d{1,2}:\d{2}|terça|quarta|quinta|sexta|segunda|sábado|domingo|amanhã|hoje/i.test(text);
+
+  if (temHorarioProposto && (novaEtapa === "agendado" || textoLower.includes("confirma"))) {
+    try {
+      const agendarRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/google-calendar/agendar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          horario_texto: text,
+          lead_nome: lead?.nome || phone,
+          lead_telefone: phone,
+          lead_id: leadId,
+          mensagem_id: msgDisparo.id,
+        }),
+      });
+      if (agendarRes.ok) {
+        const agendarData = await agendarRes.json();
+        if (agendarData.mensagem_pro_lead) {
+          respostaFinal = agendarData.mensagem_pro_lead;
+        }
+        if (agendarData.agendado && agendarData.meet_link) {
+          agendamentoCriado = { meet_link: agendarData.meet_link, data_hora: agendarData.data_hora };
+        }
+      }
+    } catch {
+      // se falhar, mantém resposta da IA (sócio confirma manualmente)
+    }
+  }
+
   // envia resposta via Z-API
   if (msgDisparo.numero_id) {
     const { data: numero } = await supabase.from("whatsapp_numeros")
@@ -237,12 +272,12 @@ export async function POST(req: Request) {
     if (numero?.zapi_instance_id && numero?.zapi_token) {
       const clientToken = process.env.ZAPI_CLIENT_TOKEN || "";
 
-      // responde pro lead
+      // responde pro lead (com mensagem do agendamento se houver)
       try {
         await fetch(`https://api.z-api.io/instances/${numero.zapi_instance_id}/token/${numero.zapi_token}/send-text`, {
           method: "POST",
           headers: { "Content-Type": "application/json", "Client-Token": clientToken },
-          body: JSON.stringify({ phone, message: resposta }),
+          body: JSON.stringify({ phone, message: respostaFinal }),
         });
       } catch {}
 
@@ -252,15 +287,21 @@ export async function POST(req: Request) {
       // destaque especial quando está no passo de agendamento — precisa confirmar
       const precisaConfirmar = novaEtapa === "agendado" || /terça|quarta|quinta|sexta|segunda|sábado|domingo|\d{1,2}h|\d{1,2}:\d{2}|horário|agenda|marcar|reuni/i.test(text);
 
-      const header = precisaConfirmar
-        ? `⚠️ *CONFIRMAÇÃO NECESSÁRIA — IA pausou aguardando você*`
-        : `🤖 *IA Autoatendimento*`;
+      let header = `🤖 *IA Autoatendimento*`;
+      let acao = "";
 
-      const acao = precisaConfirmar
-        ? `\n\n*👉 Responda aqui com o horário confirmado que eu repasso pro lead automaticamente.*`
-        : "";
+      if (agendamentoCriado) {
+        // IA já agendou automaticamente via Google Calendar
+        const dt = agendamentoCriado.data_hora ? new Date(agendamentoCriado.data_hora) : null;
+        const dtLabel = dt ? `${dt.toLocaleDateString("pt-BR")} às ${dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : "";
+        header = `✅ *AGENDAMENTO AUTOMÁTICO CONFIRMADO*`;
+        acao = `\n\n📅 ${dtLabel}\n🔗 ${agendamentoCriado.meet_link}\n\n*Link do Meet já foi enviado pro lead.*`;
+      } else if (precisaConfirmar) {
+        header = `⚠️ *CONFIRMAÇÃO NECESSÁRIA — IA pausou aguardando você*`;
+        acao = `\n\n*👉 Responda aqui com o horário confirmado que eu repasso pro lead automaticamente.*`;
+      }
 
-      const resumo = `${header}\n\n👤 Lead: *${leadNome}*\n📱 Tel: ${phone}\n${novaEtapa ? `📊 Etapa: *${novaEtapa}*\n` : ""}\n💬 Lead disse: "${text.slice(0, 180)}"\n🤖 IA respondeu: "${resposta.slice(0, 180)}"${acao}`;
+      const resumo = `${header}\n\n👤 Lead: *${leadNome}*\n📱 Tel: ${phone}\n${novaEtapa ? `📊 Etapa: *${novaEtapa}*\n` : ""}\n💬 Lead disse: "${text.slice(0, 180)}"\n🤖 IA respondeu: "${respostaFinal.slice(0, 220)}"${acao}`;
 
       // envia pro grupo (via invite code)
       const inviteCode = process.env.WHATSAPP_GRUPO_NOTIFY;
