@@ -7,6 +7,7 @@ import {
   Target, Car, Zap, Workflow, Sparkles, Calendar, Image, Bell,
   Activity, Link2, FileText, DollarSign, Receipt, Instagram,
   MessageSquare, Search, Share2, Heart, Phone, Youtube,
+  LayoutGrid,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { productsRequiredFor } from "@/lib/access/products";
@@ -31,6 +32,8 @@ const NAV = [
     { href: "/whatsapp-groups", label: "WhatsApp Groups", icon: MessageSquare },
     { href: "/facebook-groups", label: "Facebook Groups", icon: MessageSquare },
     { href: "/apollo", label: "Apollo LinkedIn", icon: MessageSquare },
+    { href: "/ligacoes", label: "Ligacoes IA", icon: Phone },
+    { href: "/crm", label: "CRM Gerencial", icon: LayoutGrid },
     { href: "/rastreamento", label: "Rastreamento", icon: Activity },
     { href: "/jornadas", label: "Jornadas", icon: Workflow },
     { href: "/links-rastreaveis", label: "Links", icon: Link2 },
