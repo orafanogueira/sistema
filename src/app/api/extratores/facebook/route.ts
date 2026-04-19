@@ -14,7 +14,15 @@ export async function POST(req: Request) {
 
   try {
     const members = await extractFacebookGroupMembers(group_url, max_members || 500);
-    return NextResponse.json({ members, total: members.length });
+    const with_email = members.filter((m) => m.email).length;
+    const with_phone = members.filter((m) => m.phone).length;
+    return NextResponse.json({
+      members,
+      total: members.length,
+      with_email,
+      with_phone,
+      active_posters: members.filter((m) => (m.totalPosts || 0) > 0).length,
+    });
   } catch (e: unknown) {
     return new NextResponse(e instanceof Error ? e.message : "erro", { status: 500 });
   }

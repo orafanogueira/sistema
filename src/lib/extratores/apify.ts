@@ -40,6 +40,11 @@ export interface FacebookGroupMember {
   profileUrl: string;
   id?: string;
   bio?: string;
+  email?: string;
+  phone?: string;
+  postContent?: string; // conteúdo do post que fez (pra dar contexto)
+  postDate?: string;
+  totalPosts?: number;   // quantos posts fez no grupo
 }
 
 export async function extractInstagramProfile(username: string): Promise<InstagramProfile[]> {
@@ -299,20 +304,100 @@ async function extractEmailFromWebsite(url: string): Promise<string | undefined>
 }
 
 export async function extractFacebookGroupMembers(groupUrl: string, maxMembers = 500): Promise<FacebookGroupMember[]> {
-  const r = await fetch(`${BASE}/acts/apify~facebook-groups-scraper/run-sync-get-dataset-items?token=${apiKey()}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      startUrls: [{ url: groupUrl }],
-      resultsLimit: maxMembers,
-      scrapeGroupMembers: true,
-    }),
-  });
+  // Realidade 2026: grupos FB limitaram muito extração direta de membros.
+  // Estratégia: extrair POSTS recentes (funciona em grupos públicos) e agregar autores.
+  // Quem posta ativamente = lead mais quente que membro silencioso.
 
-  if (!r.ok) {
-    const txt = await r.text();
-    throw new Error(`Apify FB group ${r.status}: ${txt.slice(0, 200)}`);
+  const membersMap = new Map<string, FacebookGroupMember>();
+  const errors: string[] = [];
+
+  // 1ª tentativa: actor de posts do grupo (mais confiável)
+  try {
+    const r = await fetch(`${BASE}/acts/apify~facebook-groups-scraper/run-sync-get-dataset-items?token=${apiKey()}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        startUrls: [{ url: groupUrl }],
+        resultsLimit: Math.min(maxMembers * 2, 200),
+      }),
+    });
+
+    if (r.ok) {
+      const posts = (await r.json()) as Array<Record<string, unknown>>;
+
+      for (const post of posts) {
+        const authorName = (post.user as Record<string, unknown>)?.name as string
+          || (post.authorName as string)
+          || (post.ownerName as string);
+        const authorUrl = (post.user as Record<string, unknown>)?.profileUrl as string
+          || (post.authorUrl as string)
+          || (post.ownerUrl as string);
+        const postText = (post.text as string) || (post.message as string) || "";
+        const postDate = (post.time as string) || (post.date as string);
+
+        if (!authorName) continue;
+
+        // extrai email/telefone do texto do post
+        const emailInPost = extractEmailFromBio(postText);
+        const phoneInPost = extractPhoneFromBio(postText);
+
+        const key = authorUrl || authorName;
+        const existing = membersMap.get(key);
+
+        if (existing) {
+          existing.totalPosts = (existing.totalPosts || 1) + 1;
+          // mantém o melhor contato que achou
+          if (!existing.email && emailInPost) existing.email = emailInPost;
+          if (!existing.phone && phoneInPost) existing.phone = phoneInPost;
+          // se post novo é mais longo, atualiza
+          if (postText.length > (existing.postContent?.length || 0)) {
+            existing.postContent = postText.slice(0, 400);
+            existing.postDate = postDate;
+          }
+        } else {
+          membersMap.set(key, {
+            name: authorName,
+            profileUrl: authorUrl || "",
+            email: emailInPost,
+            phone: phoneInPost,
+            postContent: postText.slice(0, 400),
+            postDate,
+            totalPosts: 1,
+          });
+        }
+
+        // também coleta comentadores (engajamento ainda maior)
+        const comments = (post.comments as Array<Record<string, unknown>>) || [];
+        for (const c of comments.slice(0, 10)) {
+          const cName = (c.user as Record<string, unknown>)?.name as string || (c.authorName as string);
+          const cUrl = (c.user as Record<string, unknown>)?.profileUrl as string || (c.authorUrl as string);
+          const cText = (c.text as string) || "";
+          if (!cName) continue;
+          const cKey = cUrl || cName;
+          if (!membersMap.has(cKey)) {
+            membersMap.set(cKey, {
+              name: cName,
+              profileUrl: cUrl || "",
+              email: extractEmailFromBio(cText),
+              phone: extractPhoneFromBio(cText),
+              postContent: cText.slice(0, 200),
+              totalPosts: 0,
+            });
+          }
+        }
+      }
+    } else {
+      errors.push(`fb-groups: ${r.status} ${(await r.text()).slice(0, 120)}`);
+    }
+  } catch (e: unknown) {
+    errors.push(`fb-groups: ${e instanceof Error ? e.message : "erro"}`);
   }
 
-  return r.json();
+  const result = Array.from(membersMap.values()).slice(0, maxMembers);
+
+  if (result.length === 0) {
+    throw new Error(`Não consegui extrair do grupo. Grupo pode ser privado ou ter limitação. Erros: ${errors.join(" | ").slice(0, 300)}`);
+  }
+
+  return result;
 }

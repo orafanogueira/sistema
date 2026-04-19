@@ -74,7 +74,13 @@ export function ExtratoresUI() {
 
   // Facebook
   const [fbForm, setFbForm] = useState({ group_url: "", max: 200 });
-  const [fbResult, setFbResult] = useState<{ members?: Array<Record<string, unknown>>; total?: number } | null>(null);
+  const [fbResult, setFbResult] = useState<{
+    members?: Array<Record<string, unknown>>;
+    total?: number;
+    with_email?: number;
+    with_phone?: number;
+    active_posters?: number;
+  } | null>(null);
 
   const extrairIG = async () => {
     if (!igForm.username.trim()) return toast.error("Informe o @ do perfil");
@@ -349,11 +355,14 @@ export function ExtratoresUI() {
                     onChange={(e) => setFbForm({ ...fbForm, max: Number(e.target.value) })} />
                 </div>
               </div>
-              <div className="text-[10px] text-muted-foreground">
-                Extrai nomes e perfis dos membros do grupo. ~$1-2 por 1000 membros.
+              <div className="text-[10px] text-muted-foreground border border-border rounded p-2 bg-background/40">
+                ℹ️ Grupos do FB limitaram extração direta de membros. A estratégia é puxar
+                <b> posts recentes</b> e pegar autores + comentadores (pessoas ativas = leads quentes).
+                Email/telefone são extraídos do texto dos posts quando a pessoa deixa contato.
+                <br />~$1-2 por 1000 posts processados.
               </div>
               <Button onClick={extrairFB} disabled={loading} className="w-full">
-                {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Extraindo...</> : <><Search className="h-4 w-4" /> Extrair membros</>}
+                {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Extraindo (pode levar 2-5min)...</> : <><Search className="h-4 w-4" /> Extrair audiência ativa</>}
               </Button>
             </CardContent>
           </Card>
