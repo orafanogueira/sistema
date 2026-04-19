@@ -145,10 +145,10 @@ export function ExtratoresUI() {
                         <div className="flex flex-wrap gap-2 mt-2 text-[10px]">
                           <Badge variant="secondary">{String(p.followersCount || 0)} seguidores</Badge>
                           <Badge variant="secondary">{String(p.postsCount || 0)} posts</Badge>
-                          {p.email && <Badge variant="success">📧 {String(p.email)}</Badge>}
-                          {p.website && <Badge variant="outline">🌐 {String(p.website)}</Badge>}
-                          {p.phone && <Badge variant="outline">📱 {String(p.phone)}</Badge>}
-                          {p.isBusinessAccount && <Badge>Business</Badge>}
+                          {p.email ? <Badge variant="success">📧 {String(p.email)}</Badge> : null}
+                          {p.website ? <Badge variant="outline">🌐 {String(p.website)}</Badge> : null}
+                          {p.phone ? <Badge variant="outline">📱 {String(p.phone)}</Badge> : null}
+                          {p.isBusinessAccount ? <Badge>Business</Badge> : null}
                         </div>
                       </div>
                     ))}
