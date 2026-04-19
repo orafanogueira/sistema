@@ -232,7 +232,7 @@ export function ExtratoresUI() {
                           <td className="p-2 text-muted-foreground">{i + 1}</td>
                           <td className="p-2 font-semibold">{String(m.name || "")}</td>
                           <td className="p-2">
-                            {m.profileUrl && <a href={String(m.profileUrl)} target="_blank" rel="noopener" className="text-cyan text-[10px] hover:underline">Ver perfil</a>}
+                            {m.profileUrl ? <a href={String(m.profileUrl)} target="_blank" rel="noopener" className="text-cyan text-[10px] hover:underline">Ver perfil</a> : null}
                           </td>
                         </tr>
                       ))}
