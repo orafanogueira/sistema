@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Search, Mail, MessageSquare, Linkedin, Users, Building2, Download } from "lucide-react";
+import { Loader2, Search, Mail, MessageSquare, Linkedin, Users, Building2, Download, Brain } from "lucide-react";
 import { toast } from "@/components/ui/toaster";
 import { ModalDisparo } from "@/components/extratores/modal-disparo";
+import { ModalResearchEmail } from "./modal-research-email";
 
 interface ApolloContato {
   id?: string;
@@ -59,6 +60,7 @@ export function ApolloUI() {
     tipo: "whatsapp" | "email";
     contatos: Array<Record<string, unknown>>;
   }>({ aberto: false, tipo: "email", contatos: [] });
+  const [modalResearch, setModalResearch] = useState(false);
 
   const buscar = async () => {
     if (!busca.job_titles && !busca.company_name) {
@@ -237,16 +239,24 @@ export function ApolloUI() {
                   {comPhone > 0 && <Badge variant="secondary">📱 {comPhone} com telefone</Badge>}
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Button size="sm" variant="outline" onClick={downloadCSV}>
                   <Download className="h-3 w-3" /> CSV
                 </Button>
-                <Button size="sm" onClick={() => abrirDisparo("email")} disabled={comEmail === 0}>
-                  <Mail className="h-3 w-3" /> Disparar Email IA
+                <Button
+                  size="sm"
+                  onClick={() => setModalResearch(true)}
+                  disabled={comEmail === 0}
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
+                >
+                  <Brain className="h-3 w-3" /> Email com Research Profundo
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => abrirDisparo("email")} disabled={comEmail === 0}>
+                  <Mail className="h-3 w-3" /> Email simples
                 </Button>
                 {comPhone > 0 && (
                   <Button size="sm" variant="outline" onClick={() => abrirDisparo("whatsapp")}>
-                    <MessageSquare className="h-3 w-3" /> Disparar WhatsApp IA
+                    <MessageSquare className="h-3 w-3" /> WhatsApp IA
                   </Button>
                 )}
               </div>
@@ -305,6 +315,12 @@ export function ApolloUI() {
         onClose={() => setModalDisparo({ ...modalDisparo, aberto: false })}
         tipo={modalDisparo.tipo}
         contatos={modalDisparo.contatos}
+      />
+
+      <ModalResearchEmail
+        open={modalResearch}
+        onClose={() => setModalResearch(false)}
+        contatos={contatos}
       />
     </div>
   );
