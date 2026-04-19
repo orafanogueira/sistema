@@ -8,6 +8,7 @@ import { Loader2, Instagram, Facebook, Download, Search, Users, Linkedin, Messag
 import { toast } from "@/components/ui/toaster";
 import { ModalDisparo, type DisparoTipo } from "./modal-disparo";
 import { FacebookGroupsUI } from "@/components/facebook-groups/facebook-groups-ui";
+import { ApolloUI } from "@/components/apollo/apollo-ui";
 
 type Tab = "instagram" | "facebook" | "apollo";
 
@@ -45,33 +46,6 @@ export function ExtratoresUI() {
     conversion_rate?: string;
     usernames_used?: string[];
   } | null>(null);
-
-  // Apollo LinkedIn
-  const [apolloForm, setApolloForm] = useState({ job_titles: "", location: "Brazil", company_name: "", per_page: 25 });
-  const [apolloResult, setApolloResult] = useState<{ contacts?: Array<Record<string, unknown>>; total?: number } | null>(null);
-
-  const buscarApollo = async () => {
-    if (!apolloForm.job_titles && !apolloForm.company_name) return toast.error("Informe cargo ou empresa");
-    setLoading(true); setApolloResult(null);
-    try {
-      const r = await fetch("/api/extratores/apollo", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tipo: "pessoas",
-          job_titles: apolloForm.job_titles,
-          location: apolloForm.location,
-          company_name: apolloForm.company_name,
-          per_page: apolloForm.per_page,
-        }),
-      });
-      if (!r.ok) throw new Error(await r.text());
-      const data = await r.json();
-      setApolloResult(data);
-      toast.success(`${data.contacts?.length || 0} contatos encontrados (${data.total} total)`);
-    } catch (e: unknown) {
-      toast.error("Erro", e instanceof Error ? e.message : "tente novamente");
-    } finally { setLoading(false); }
-  };
 
   const extrairIG = async () => {
     if (!igForm.username.trim()) return toast.error("Informe o @ do perfil");
@@ -313,6 +287,8 @@ export function ExtratoresUI() {
       )}
 
       {tab === "facebook" && <FacebookGroupsUI />}
+
+      {tab === "apollo" && <ApolloUI />}
 
       <ModalDisparo
         open={modalDisparo.aberto}

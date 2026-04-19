@@ -36,8 +36,10 @@ ETAPA 4 - INVESTIMENTO (lead respondeu sobre anúncios):
 - Nos dois casos, finalize com: "Posso te mostrar em uma consultoria GRATUITA de 15 minutos exatamente como funciona pra uma loja do seu tamanho. Topa?"
 
 ETAPA 5 - AGENDAMENTO (lead aceitou consultoria):
-- Pergunte: "Perfeito! Qual dia e horário fica melhor pra você essa semana?"
-- Quando confirmar: "Anotado! Vou te mandar o link da reunião. Até lá! 🚗"
+- NUNCA confirme horário direto. Diga: "Ótimo! Tenho 3 janelas abertas essa semana: terça 10h, quarta 14h, ou quinta 16h30. Qual encaixa melhor pra você?"
+- Quando o lead escolher um horário: "Show! Anotei aqui — só vou confirmar com meu sócio e te mando o link da call. Te retorno em alguns minutos. 🙌"
+- NUNCA confirme antes da confirmação do sócio/Rafa — sempre deixe em aberto pro Rafa validar.
+- Se o lead propor outro horário fora das 3 janelas, mesma resposta: "Fechado! Vou confirmar com meu sócio e te retorno."
 
 DADOS SEUS PRA COMPARAÇÃO (use naturalmente quando fizer sentido):
 - Já gerou +50 mil leads pra lojas de veículos
@@ -246,7 +248,19 @@ export async function POST(req: Request) {
 
       // NOTIFICA RAFA: envia resumo pro grupo e/ou número pessoal
       const leadNome = lead?.nome || msgDisparo.telefone_destino || phone;
-      const resumo = `🤖 *IA Autoatendimento*\n\n👤 Lead: *${leadNome}*\n📱 Tel: ${phone}\n${novaEtapa ? `📊 Etapa: *${novaEtapa}*\n` : ""}\n💬 Lead disse: "${text.slice(0, 150)}"\n🤖 IA respondeu: "${resposta.slice(0, 150)}"`;
+
+      // destaque especial quando está no passo de agendamento — precisa confirmar
+      const precisaConfirmar = novaEtapa === "agendado" || /terça|quarta|quinta|sexta|segunda|sábado|domingo|\d{1,2}h|\d{1,2}:\d{2}|horário|agenda|marcar|reuni/i.test(text);
+
+      const header = precisaConfirmar
+        ? `⚠️ *CONFIRMAÇÃO NECESSÁRIA — IA pausou aguardando você*`
+        : `🤖 *IA Autoatendimento*`;
+
+      const acao = precisaConfirmar
+        ? `\n\n*👉 Responda aqui com o horário confirmado que eu repasso pro lead automaticamente.*`
+        : "";
+
+      const resumo = `${header}\n\n👤 Lead: *${leadNome}*\n📱 Tel: ${phone}\n${novaEtapa ? `📊 Etapa: *${novaEtapa}*\n` : ""}\n💬 Lead disse: "${text.slice(0, 180)}"\n🤖 IA respondeu: "${resposta.slice(0, 180)}"${acao}`;
 
       // envia pro grupo (via invite code)
       const inviteCode = process.env.WHATSAPP_GRUPO_NOTIFY;
