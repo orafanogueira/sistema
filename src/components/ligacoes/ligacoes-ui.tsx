@@ -58,7 +58,7 @@ export function LigacoesUI({ ligacoes: initial, filas }: { ligacoes: Ligacao[]; 
     nome_campanha: `Campanha ${new Date().toISOString().slice(0, 10)}`,
     telefones_txt: "",
     script: SCRIPT_PADRAO,
-    voice_id: "XB0fDUnXU5powFXDhCwa", // Charlotte PT-BR
+    voice_id: "pt-BR-FranciscaNeural", // Azure PT-BR nativo
   });
 
   const dispararIA = async () => {
@@ -169,21 +169,26 @@ export function LigacoesUI({ ligacoes: initial, filas }: { ligacoes: Ligacao[]; 
                 value={form.voice_id}
                 onChange={(e) => setForm({ ...form, voice_id: e.target.value })}
               >
-                <optgroup label="🇧🇷 Vozes que falam bem em Português (multilíngue)">
-                  <option value="XB0fDUnXU5powFXDhCwa">Charlotte (feminina, sotaque neutro) ⭐</option>
-                  <option value="XrExE9yKIg1WjnnlVkGX">Matilda (feminina, jovem)</option>
-                  <option value="pNInz6obpgDQGcFmaJgB">Adam (masculina, calma)</option>
-                  <option value="TxGEqnHWrfWFTfGW9XjX">Josh (masculina, profissional)</option>
-                  <option value="onwK4e9ZLuTAKqWW03F9">Daniel (masculina, narrativa)</option>
+                <optgroup label="🇧🇷 Azure Neural TTS — Português BR nativo (mais natural)">
+                  <option value="pt-BR-FranciscaNeural">Francisca (feminina, profissional) ⭐</option>
+                  <option value="pt-BR-ThalitaNeural">Thalita (feminina, jovem)</option>
+                  <option value="pt-BR-LeticiaNeural">Letícia (feminina, calma)</option>
+                  <option value="pt-BR-AntonioNeural">Antônio (masculina, profissional)</option>
+                  <option value="pt-BR-BrendaNeural">Brenda (feminina, animada)</option>
+                  <option value="pt-BR-ElzaNeural">Elza (feminina, madura)</option>
                 </optgroup>
-                <optgroup label="🇺🇸 Vozes em Inglês">
-                  <option value="21m00Tcm4TlvDq8ikWAM">Rachel (feminina)</option>
-                  <option value="AZnzlk1XvdvUeBnXmlld">Domi (feminina jovem)</option>
+                <optgroup label="🇧🇷 11labs multilíngue (alternativa)">
+                  <option value="XB0fDUnXU5powFXDhCwa">Charlotte (feminina)</option>
+                  <option value="XrExE9yKIg1WjnnlVkGX">Matilda (feminina jovem)</option>
+                  <option value="pNInz6obpgDQGcFmaJgB">Adam (masculina)</option>
+                </optgroup>
+                <optgroup label="🇺🇸 Inglês (só pra prospecção EUA)">
+                  <option value="en-US-JennyNeural">Jenny (Azure feminina EN)</option>
+                  <option value="21m00Tcm4TlvDq8ikWAM">Rachel (11labs EN)</option>
                 </optgroup>
               </select>
               <div className="text-[10px] text-muted-foreground mt-1">
-                Pra prospecção no Brasil, use as vozes marcadas com 🇧🇷 (modelo eleven_multilingual_v2).
-                Teste antes com seu número pra avaliar naturalidade.
+                Azure Neural TTS tem vozes PT-BR nativas (melhor qualidade/sotaque). Recomendo Francisca pra prospecção B2B.
               </div>
             </div>
 

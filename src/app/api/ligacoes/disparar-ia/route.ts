@@ -53,6 +53,23 @@ export async function POST(req: Request) {
     criado_por: user.id,
   }).select().single();
 
+  // Detecta provider da voz pelo ID
+  // - IDs começando com "pt-BR-" são Azure Neural TTS (PT-BR NATIVO — melhor qualidade)
+  // - Outros (UUIDs alfanuméricos) são 11labs multilíngue
+  const selectedVoice = voice_id || "pt-BR-FranciscaNeural";
+  const isAzureVoice = selectedVoice.startsWith("pt-BR-") || selectedVoice.startsWith("en-US-");
+
+  const voiceConfig = isAzureVoice
+    ? {
+        provider: "azure" as const,
+        voiceId: selectedVoice,
+      }
+    : {
+        provider: "11labs" as const,
+        voiceId: selectedVoice,
+        model: "eleven_multilingual_v2",
+      };
+
   const assistantConfig = {
     name: `Assistente Rafa - ${fila?.id?.slice(0, 6) || "default"}`,
     model: {
@@ -60,18 +77,11 @@ export async function POST(req: Request) {
       model: "gpt-4o-mini",
       messages: [{
         role: "system",
-        content: `IMPORTANTE: Você SEMPRE fala em português brasileiro. Nunca use inglês.\n\n${script || PROMPT_RAFA_PADRAO}`,
+        content: `IDIOMA: Você SEMPRE responde em português brasileiro. NUNCA use inglês. Todas as respostas devem ser em português do Brasil, com sotaque e expressões brasileiras.\n\n${script || PROMPT_RAFA_PADRAO}`,
       }],
       temperature: 0.7,
     },
-    voice: {
-      provider: "11labs" as const,
-      voiceId: voice_id || "XB0fDUnXU5powFXDhCwa", // Charlotte — multilíngue, fala PT bem
-      model: "eleven_multilingual_v2", // modelo multilíngue (obrigatório pra PT)
-      language: "pt",
-      stability: 0.5,
-      similarityBoost: 0.75,
-    },
+    voice: voiceConfig,
     transcriber: {
       provider: "deepgram" as const,
       model: "nova-2",
@@ -80,7 +90,6 @@ export async function POST(req: Request) {
     firstMessage: "Oi, tudo bem? Aqui é a Ana, falando do Grupo Nogueira. Posso falar rapidinho com você?",
     firstMessageMode: "assistant-speaks-first" as const,
     endCallMessage: "Obrigada pelo tempo! Qualquer coisa, tô por aqui. Até mais!",
-    language: "pt-BR",
     backgroundSound: "off" as const,
   };
 
