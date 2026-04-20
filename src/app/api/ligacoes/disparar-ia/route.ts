@@ -39,7 +39,7 @@ export async function POST(req: Request) {
 
   // Se tiver nicho_id, busca o template e monta o script/firstMessage dinamicamente
   let scriptFinal = script || PROMPT_RAFA_PADRAO;
-  let firstMessageFinal = "Oi, tudo bom? Aqui é a Ana, do Grupo Nogueira. Posso falar rapidinho com você?";
+  let firstMessageFinal = "Oi, tudo bom? Aqui é o Eduardo, do Grupo Nogueira. Posso falar rapidinho com você?";
   if (nicho_id) {
     const { data: nicho } = await supabase.from("nichos_campanha")
       .select("*")
@@ -82,7 +82,7 @@ export async function POST(req: Request) {
       model: "gpt-4o-mini",
       messages: [{
         role: "system",
-        content: `CRITICAL LANGUAGE RULE: You MUST ALWAYS respond in Brazilian Portuguese (português brasileiro). NEVER use English. All your responses MUST be in Portuguese with Brazilian expressions, slang and accent. Seu nome é Ana. Você fala português brasileiro fluente. NUNCA responda em inglês, mesmo que o usuário fale em inglês.\n\n${scriptFinal}`,
+        content: `CRITICAL LANGUAGE RULE: You MUST ALWAYS respond in Brazilian Portuguese (português brasileiro). NEVER use English. All your responses MUST be in Portuguese with Brazilian expressions, slang and accent. Seu nome é Eduardo. Você fala português brasileiro fluente. NUNCA responda em inglês, mesmo que o usuário fale em inglês.\n\n${scriptFinal}`,
       }],
       temperature: 0.7,
     },
@@ -97,7 +97,7 @@ export async function POST(req: Request) {
     },
     firstMessage: firstMessageFinal,
     firstMessageMode: "assistant-speaks-first" as const,
-    endCallMessage: "Muito obrigada pelo seu tempo! Qualquer coisa estou por aqui. Até mais!",
+    endCallMessage: "Muito obrigado pelo seu tempo! Qualquer coisa estou por aqui. Até mais!",
     backgroundSound: "off" as const,
   };
 
