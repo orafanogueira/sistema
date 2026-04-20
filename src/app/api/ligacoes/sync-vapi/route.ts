@@ -21,11 +21,34 @@ export async function POST(req: Request) {
   const tenantId = m.tenant_id;
 
   // USA ADMIN CLIENT (bypass RLS) pra garantir leitura/escrita sem problemas
-  const supabase = createSupabaseAdmin(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false, autoRefreshToken: false } }
-  );
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) {
+    return NextResponse.json({
+      atualizadas: 0,
+      erro: "SUPABASE_SERVICE_ROLE_KEY ausente no Vercel",
+      primeiro_erro: "SUPABASE_SERVICE_ROLE_KEY ausente no Vercel",
+      env_status: {
+        supabase_url: !!supabaseUrl,
+        service_key: !!serviceKey,
+      },
+    });
+  }
+  const supabase = createSupabaseAdmin(supabaseUrl, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  // Teste de sanidade: conta TODAS as ligações da tabela (sem filtro)
+  const { count: totalTudo, error: errSanidade } = await supabase.from("ligacoes")
+    .select("*", { count: "exact", head: true });
+
+  if (errSanidade) {
+    return NextResponse.json({
+      atualizadas: 0,
+      erro: `Admin client erro: ${errSanidade.message}`,
+      primeiro_erro: errSanidade.message,
+    });
+  }
 
   // Parse opcional: se force=true, sincroniza TODAS (mesmo com transcript já salvo)
   const body = await req.json().catch(() => ({}));
@@ -64,16 +87,14 @@ export async function POST(req: Request) {
   if (!ligacoes || ligacoes.length === 0) {
     return NextResponse.json({
       atualizadas: 0,
+      total: 0,
       debug: {
         total_ligacoes_7_dias: totalLigacoes || 0,
+        total_geral_tabela: totalTudo || 0,
         com_vapi_call_id: comVapiId || 0,
-        sem_vapi_call_id: (totalLigacoes || 0) - (comVapiId || 0),
       },
-      mensagem: (totalLigacoes || 0) === 0
-        ? "Nenhuma ligação nos últimos 7 dias"
-        : (comVapiId || 0) === 0
-        ? "Ligações existem mas nenhuma tem vapi_call_id salvo — bug no disparar-ia. Faça uma ligação nova pra testar."
-        : "Todas as ligações já estão sincronizadas",
+      primeiro_erro: `DB tem ${totalTudo || 0} ligações total, ${totalLigacoes || 0} nos últimos 7d. Se >0 mas data vazio, é bug de query.`,
+      mensagem: `Total no DB: ${totalTudo || 0} · 7d: ${totalLigacoes || 0} · com vapi_id: ${comVapiId || 0}`,
     });
   }
 
