@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 import { getCall } from "@/lib/ligacoes/vapi";
 
 export const maxDuration = 120;
@@ -10,9 +11,21 @@ export const maxDuration = 120;
  * - status, duracao, transcript, resumo_ia, resultado, custo
  */
 export async function POST(req: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const supabaseUser = await createClient();
+  const { data: { user } } = await supabaseUser.auth.getUser();
   if (!user) return new NextResponse("unauthorized", { status: 401 });
+
+  // busca tenant do user
+  const { data: m } = await supabaseUser.from("memberships").select("tenant_id").eq("user_id", user.id).maybeSingle();
+  if (!m) return new NextResponse("sem tenant", { status: 400 });
+  const tenantId = m.tenant_id;
+
+  // USA ADMIN CLIENT (bypass RLS) pra garantir leitura/escrita sem problemas
+  const supabase = createSupabaseAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } }
+  );
 
   // Parse opcional: se force=true, sincroniza TODAS (mesmo com transcript já salvo)
   const body = await req.json().catch(() => ({}));
@@ -23,6 +36,7 @@ export async function POST(req: Request) {
 
   let query = supabase.from("ligacoes")
     .select("id, vapi_call_id, status, lead_id, tenant_id, telefone, nome, numero_id, transcript")
+    .eq("tenant_id", tenantId)
     .gte("created_at", seteDiasAtras)
     .order("created_at", { ascending: false })
     .limit(100);
@@ -41,9 +55,11 @@ export async function POST(req: Request) {
   // Debug: conta quantas ligações existem no total vs quantas têm vapi_call_id
   const { count: totalLigacoes } = await supabase.from("ligacoes")
     .select("*", { count: "exact", head: true })
+    .eq("tenant_id", tenantId)
     .gte("created_at", seteDiasAtras);
   const { count: comVapiId } = await supabase.from("ligacoes")
     .select("*", { count: "exact", head: true })
+    .eq("tenant_id", tenantId)
     .not("vapi_call_id", "is", null)
     .gte("created_at", seteDiasAtras);
 
