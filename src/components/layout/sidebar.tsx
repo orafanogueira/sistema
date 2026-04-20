@@ -34,6 +34,7 @@ const NAV = [
     { href: "/apollo", label: "Apollo LinkedIn", icon: MessageSquare },
     { href: "/ligacoes", label: "Ligacoes IA", icon: Phone },
     { href: "/crm", label: "CRM Gerencial", icon: LayoutGrid },
+    { href: "/crm/funil", label: "Funil Prospeccao", icon: LayoutGrid },
     { href: "/rastreamento", label: "Rastreamento", icon: Activity },
     { href: "/jornadas", label: "Jornadas", icon: Workflow },
     { href: "/links-rastreaveis", label: "Links", icon: Link2 },
