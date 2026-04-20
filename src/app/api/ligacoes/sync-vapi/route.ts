@@ -14,13 +14,15 @@ export async function POST() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new NextResponse("unauthorized", { status: 401 });
 
-  // pega ligações dos últimos 30 dias que ainda estão pendentes/em_andamento
-  const trintaDiasAtras = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  // pega TODAS as ligações dos últimos 7 dias que têm vapi_call_id e ainda não foram finalizadas
+  // (ignora filtro de status — busca por qualquer que não tenha transcript salvo, indicando que não sincronizou)
+  const seteDiasAtras = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const { data: ligacoes } = await supabase.from("ligacoes")
-    .select("id, vapi_call_id, status, lead_id, tenant_id, telefone, nome, numero_id")
-    .in("status", ["pendente", "em_andamento"])
+    .select("id, vapi_call_id, status, lead_id, tenant_id, telefone, nome, numero_id, transcript")
     .not("vapi_call_id", "is", null)
-    .gte("created_at", trintaDiasAtras);
+    .gte("created_at", seteDiasAtras)
+    .order("created_at", { ascending: false })
+    .limit(100);
 
   if (!ligacoes || ligacoes.length === 0) {
     return NextResponse.json({ atualizadas: 0, mensagem: "Nenhuma ligação pendente pra sincronizar" });
