@@ -5,6 +5,104 @@ import { getCall } from "@/lib/ligacoes/vapi";
 
 export const maxDuration = 120;
 
+// GET — executa exatamente a mesma lógica do POST mas sem sessão (útil pra debug via browser)
+export async function GET() {
+  return runSync(true);
+}
+
+async function runSync(force: boolean) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) {
+    return NextResponse.json({
+      atualizadas: 0,
+      erro: "envs ausentes",
+    });
+  }
+
+  const supabase = createSupabaseAdmin(supabaseUrl, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const seteDiasAtras = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  let query = supabase.from("ligacoes")
+    .select("id, vapi_call_id, status, lead_id, tenant_id, telefone, nome, numero_id, transcript")
+    .gte("created_at", seteDiasAtras)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (!force) {
+    query = query.is("transcript", null);
+  }
+
+  const { data: ligacoes, error: errLig } = await query;
+
+  if (errLig) return NextResponse.json({ erro: errLig.message, atualizadas: 0 });
+
+  if (!ligacoes || ligacoes.length === 0) {
+    return NextResponse.json({
+      atualizadas: 0,
+      total_retornado: 0,
+      mensagem: "Query retornou array vazio",
+    });
+  }
+
+  let atualizadas = 0;
+  const detalhes: Array<{ id: string; status?: string; resultado?: string; erro?: string; call_status?: string }> = [];
+
+  for (const lig of ligacoes) {
+    if (!lig.vapi_call_id) {
+      detalhes.push({ id: lig.id.slice(0, 8), erro: "sem vapi_call_id" });
+      continue;
+    }
+
+    try {
+      const call = await getCall(lig.vapi_call_id);
+      const transcript = call.transcript || "";
+      const summary = call.summary || call.analysis?.summary;
+      const endedReason = call.endedReason;
+      const durationSec = call.endedAt && call.startedAt
+        ? Math.round((new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000)
+        : undefined;
+
+      let resultado = "atendida";
+      const t = transcript.toLowerCase();
+      if (endedReason === "customer-did-not-answer" || endedReason === "no-answer") resultado = "sem_resposta";
+      else if (endedReason === "silence-timed-out") resultado = "silencio";
+      else if (t.includes("não tenho interesse") || t.includes("não quero")) resultado = "sem_interesse";
+      else if (t.includes("pode mandar") || t.includes("manda no whatsapp") || t.includes("topo") || t.includes("aceito")) resultado = "agendou";
+
+      const novoStatus = call.status === "ended" ? "atendida" : (resultado === "sem_resposta" ? "sem_resposta" : "atendida");
+
+      const { error: upErr } = await supabase.from("ligacoes").update({
+        status: novoStatus,
+        transcript: transcript || null,
+        resumo_ia: summary || null,
+        duracao_segundos: durationSec || null,
+        resultado,
+        custo_estimado: call.cost || null,
+      }).eq("id", lig.id);
+
+      if (upErr) {
+        detalhes.push({ id: lig.id.slice(0, 8), erro: `update: ${upErr.message}` });
+      } else {
+        atualizadas++;
+        detalhes.push({ id: lig.id.slice(0, 8), resultado, call_status: call.status });
+      }
+    } catch (e: unknown) {
+      detalhes.push({ id: lig.id.slice(0, 8), erro: e instanceof Error ? e.message : "erro" });
+    }
+  }
+
+  return NextResponse.json({
+    total_retornado: ligacoes.length,
+    atualizadas,
+    erros: detalhes.filter((d) => d.erro).length,
+    detalhes: detalhes.slice(0, 20),
+  });
+}
+
 /**
  * Sincroniza ligações com o Vapi quando o webhook não chegou.
  * Puxa status real de cada vapi_call_id das últimas 24h e atualiza:
