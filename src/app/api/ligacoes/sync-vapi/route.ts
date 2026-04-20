@@ -34,9 +34,9 @@ export async function POST(req: Request) {
   // pega TODAS as ligações dos últimos 7 dias
   const seteDiasAtras = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
+  // SEM filtro de tenant — sistema monotenant, pega tudo
   let query = supabase.from("ligacoes")
     .select("id, vapi_call_id, status, lead_id, tenant_id, telefone, nome, numero_id, transcript")
-    .eq("tenant_id", tenantId)
     .gte("created_at", seteDiasAtras)
     .order("created_at", { ascending: false })
     .limit(100);
@@ -52,14 +52,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ erro: errLig.message, atualizadas: 0 });
   }
 
-  // Debug: conta quantas ligações existem no total vs quantas têm vapi_call_id
+  // Debug: conta SEM filtrar por tenant
   const { count: totalLigacoes } = await supabase.from("ligacoes")
     .select("*", { count: "exact", head: true })
-    .eq("tenant_id", tenantId)
     .gte("created_at", seteDiasAtras);
   const { count: comVapiId } = await supabase.from("ligacoes")
     .select("*", { count: "exact", head: true })
-    .eq("tenant_id", tenantId)
     .not("vapi_call_id", "is", null)
     .gte("created_at", seteDiasAtras);
 
