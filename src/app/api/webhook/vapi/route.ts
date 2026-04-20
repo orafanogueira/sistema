@@ -9,6 +9,11 @@ import { getValidToken } from "@/lib/google-calendar/token-manager";
  * URL: {NEXT_PUBLIC_APP_URL}/api/webhook/vapi
  */
 
+// Handle GET pra Vapi validar a URL
+export async function GET() {
+  return NextResponse.json({ ok: true, webhook: "vapi", time: new Date().toISOString() });
+}
+
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const message = body.message || body;
@@ -23,7 +28,18 @@ export async function POST(req: Request) {
   // Pega call info
   const call = message.call || body.call || {};
   const callId = call.id || message.callId || body.callId;
-  if (!callId) return NextResponse.json({ ignored: true });
+
+  // LOG DE DEBUG: salva todo webhook que chega pra diagnosticar
+  try {
+    await supabase.from("webhook_logs_vapi").insert({
+      vapi_call_id: callId || null,
+      event_type: type || "unknown",
+      payload_preview: JSON.stringify({ type, callId, status: message.status, endedReason: message.endedReason }).slice(0, 500),
+      received_at: new Date().toISOString(),
+    });
+  } catch {}
+
+  if (!callId) return NextResponse.json({ ignored: true, reason: "no_call_id" });
 
   // Busca ligação pelo vapi_call_id
   const { data: lig } = await supabase.from("ligacoes")
@@ -31,7 +47,7 @@ export async function POST(req: Request) {
     .eq("vapi_call_id", callId)
     .maybeSingle();
 
-  if (!lig) return NextResponse.json({ ignored: true, reason: "ligacao_nao_encontrada" });
+  if (!lig) return NextResponse.json({ ignored: true, reason: "ligacao_nao_encontrada", callId });
 
   // Status events
   if (type === "status-update") {
