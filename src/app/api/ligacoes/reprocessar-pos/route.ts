@@ -51,12 +51,9 @@ export async function POST(req: Request) {
     }
   } catch {}
 
-  // 2. Busca Z-API ativo
-  const { data: zapi } = lig.numero_id
-    ? await supabase.from("whatsapp_numeros")
-        .select("zapi_instance_id,zapi_token").eq("id", lig.numero_id).maybeSingle()
-    : await supabase.from("whatsapp_numeros")
-        .select("zapi_instance_id,zapi_token").eq("is_active", true).limit(1).maybeSingle();
+  // 2. Busca Z-API ativo (liga usa numero Vapi, mas WhatsApp usa número ativo da tabela whatsapp_numeros)
+  const { data: zapi } = await supabase.from("whatsapp_numeros")
+    .select("id,zapi_instance_id,zapi_token").eq("is_active", true).limit(1).maybeSingle();
 
   if (!zapi?.zapi_instance_id || !zapi?.zapi_token) {
     return NextResponse.json({
@@ -86,7 +83,7 @@ export async function POST(req: Request) {
       enviouWhatsapp = true;
       await supabase.from("disparo_mensagens").insert({
         tenant_id: tenantId,
-        numero_id: lig.numero_id || null,
+        numero_id: zapi?.id || null,
         telefone_destino: telLead,
         nome_destino: nomeLead,
         mensagem_texto: mensagemLead,

@@ -27,7 +27,7 @@ async function runSync(force: boolean) {
   const seteDiasAtras = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   let query = supabase.from("ligacoes")
-    .select("id, vapi_call_id, status, lead_id, tenant_id, telefone, nome, numero_id, transcript")
+    .select("id, vapi_call_id, status, lead_id, tenant_id, telefone, nome, vapi_numero_id, transcript")
     .gte("created_at", seteDiasAtras)
     .order("created_at", { ascending: false })
     .limit(100);
@@ -157,7 +157,7 @@ export async function POST(req: Request) {
 
   // SEM filtro de tenant — sistema monotenant, pega tudo
   let query = supabase.from("ligacoes")
-    .select("id, vapi_call_id, status, lead_id, tenant_id, telefone, nome, numero_id, transcript")
+    .select("id, vapi_call_id, status, lead_id, tenant_id, telefone, nome, vapi_numero_id, transcript")
     .gte("created_at", seteDiasAtras)
     .order("created_at", { ascending: false })
     .limit(100);

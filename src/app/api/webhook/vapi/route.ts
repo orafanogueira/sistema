@@ -43,7 +43,7 @@ export async function POST(req: Request) {
 
   // Busca ligação pelo vapi_call_id
   const { data: lig } = await supabase.from("ligacoes")
-    .select("id,lead_id,tenant_id,telefone,nome,numero_id")
+    .select("id,lead_id,tenant_id,telefone,nome,vapi_numero_id")
     .eq("vapi_call_id", callId)
     .maybeSingle();
 
@@ -137,7 +137,7 @@ export async function POST(req: Request) {
         nomeLead: lig.nome || "lead",
         ligacaoId: lig.id,
         resumoIA: summary || "",
-        numeroId: lig.numero_id,
+        numeroId: lig.vapi_numero_id,
       });
     }
   }
