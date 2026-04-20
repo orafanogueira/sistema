@@ -10,7 +10,11 @@ export function SyncVapiButton() {
   const sync = async () => {
     setLoading(true);
     try {
-      const r = await fetch("/api/ligacoes/sync-vapi", { method: "POST" });
+      const r = await fetch("/api/ligacoes/sync-vapi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force: true }),
+      });
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
       if (data.atualizadas === 0 && data.debug) {

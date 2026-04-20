@@ -9,20 +9,34 @@ export const maxDuration = 120;
  * Puxa status real de cada vapi_call_id das últimas 24h e atualiza:
  * - status, duracao, transcript, resumo_ia, resultado, custo
  */
-export async function POST() {
+export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new NextResponse("unauthorized", { status: 401 });
 
-  // pega TODAS as ligações dos últimos 7 dias que têm vapi_call_id e ainda não foram finalizadas
-  // (ignora filtro de status — busca por qualquer que não tenha transcript salvo, indicando que não sincronizou)
+  // Parse opcional: se force=true, sincroniza TODAS (mesmo com transcript já salvo)
+  const body = await req.json().catch(() => ({}));
+  const force = body?.force === true;
+
+  // pega TODAS as ligações dos últimos 7 dias
   const seteDiasAtras = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const { data: ligacoes } = await supabase.from("ligacoes")
+
+  let query = supabase.from("ligacoes")
     .select("id, vapi_call_id, status, lead_id, tenant_id, telefone, nome, numero_id, transcript")
-    .not("vapi_call_id", "is", null)
     .gte("created_at", seteDiasAtras)
     .order("created_at", { ascending: false })
     .limit(100);
+
+  // Se não for force, só pega as que NÃO têm transcript ainda (pra não reprocessar toda hora)
+  if (!force) {
+    query = query.is("transcript", null);
+  }
+
+  const { data: ligacoes, error: errLig } = await query;
+
+  if (errLig) {
+    return NextResponse.json({ erro: errLig.message, atualizadas: 0 });
+  }
 
   // Debug: conta quantas ligações existem no total vs quantas têm vapi_call_id
   const { count: totalLigacoes } = await supabase.from("ligacoes")
@@ -54,6 +68,12 @@ export async function POST() {
   const detalhes: Array<{ id: string; status?: string; resultado?: string; erro?: string }> = [];
 
   for (const lig of ligacoes) {
+    // pula ligações sem vapi_call_id (não foram enviadas ao Vapi)
+    if (!lig.vapi_call_id) {
+      detalhes.push({ id: lig.id, erro: "sem vapi_call_id (ligação não foi disparada ao Vapi)" });
+      continue;
+    }
+
     try {
       const call = await getCall(lig.vapi_call_id);
 
