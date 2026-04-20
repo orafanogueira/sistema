@@ -4,8 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Phone, PhoneCall, Bot, User as UserIcon, Play, Clock, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { Loader2, Phone, PhoneCall, Bot, User as UserIcon, Play, Clock, CheckCircle2, XCircle, AlertCircle, MapPin } from "lucide-react";
 import { toast } from "@/components/ui/toaster";
+import { ExtratorLeads } from "./extrator-leads";
 
 interface Ligacao {
   id: string;
@@ -139,6 +140,21 @@ export function LigacoesUI({ ligacoes: initial, filas }: { ligacoes: Ligacao[]; 
       </div>
 
       {modo === "ia" && (
+        <>
+          <ExtratorLeads
+            onUsarLeads={(leads) => {
+              const linhas = leads
+                .filter((l) => l.telefone)
+                .map((l) => `${l.nome.replace(/[,;|]/g, " ")},${l.telefone}`)
+                .join("\n");
+              setForm({ ...form, telefones_txt: linhas });
+              toast.success(`${leads.length} leads adicionados ao campo abaixo`);
+              // scroll suave pro campo de telefones
+              setTimeout(() => {
+                document.querySelector("[data-telefones-field]")?.scrollIntoView({ behavior: "smooth" });
+              }, 200);
+            }}
+          />
         <Card>
           <CardHeader>
             <CardTitle className="text-sm flex items-center gap-2">
@@ -182,7 +198,7 @@ export function LigacoesUI({ ligacoes: initial, filas }: { ligacoes: Ligacao[]; 
               </div>
             </div>
 
-            <div>
+            <div data-telefones-field>
               <Label>Telefones (1 por linha) — formato: Nome,5511999999999</Label>
               <Textarea
                 className="mt-1 min-h-[140px] text-xs font-mono"
@@ -255,6 +271,7 @@ export function LigacoesUI({ ligacoes: initial, filas }: { ligacoes: Ligacao[]; 
             </div>
           </CardContent>
         </Card>
+        </>
       )}
 
       {modo === "manual" && (
