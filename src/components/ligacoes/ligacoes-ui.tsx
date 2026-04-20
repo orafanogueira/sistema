@@ -333,7 +333,8 @@ export function LigacoesUI({ ligacoes: initial, filas }: { ligacoes: Ligacao[]; 
                 </thead>
                 <tbody>
                   {ligacoes.slice(0, 100).map((l, i) => (
-                    <tr key={l.id} className="border-b border-border">
+                    <tr key={l.id} className="border-b border-border hover:bg-background/40 cursor-pointer"
+                      onClick={() => window.location.href = `/ligacoes/${l.id}`}>
                       <td className="p-2 text-muted-foreground">{i + 1}</td>
                       <td className="p-2">{iconStatus(l.status)}</td>
                       <td className="p-2">
