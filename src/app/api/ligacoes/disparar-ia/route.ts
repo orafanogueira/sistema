@@ -140,12 +140,17 @@ export async function POST(req: Request) {
 
     try {
       // Se usa Assistant persistente + tem nicho selecionado, sobrescreve firstMessage e system prompt
+      // Vapi exige provider + model completos no override (não só messages)
       const overrides = (persistentAssistantId && nicho_id) ? {
         firstMessage: firstMessageFinal,
         model: {
+          provider: "openai",
+          model: "gpt-4o-mini",
           messages: [{ role: "system", content: scriptFinal }],
         },
-      } : undefined;
+      } : (persistentAssistantId ? {
+        firstMessage: firstMessageFinal,
+      } : undefined);
 
       const call = await makeOutboundCall({
         phone: telFinal,

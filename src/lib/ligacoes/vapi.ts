@@ -58,7 +58,11 @@ export async function makeOutboundCall(opts: {
   assistantConfig?: VapiAssistantConfig;
   assistantOverrides?: {
     firstMessage?: string;
-    model?: { messages?: Array<{ role: string; content: string }> };
+    model?: {
+      provider?: string;
+      model?: string;
+      messages?: Array<{ role: string; content: string }>;
+    };
   };
   phoneNumberId?: string;
   metadata?: Record<string, unknown>;
