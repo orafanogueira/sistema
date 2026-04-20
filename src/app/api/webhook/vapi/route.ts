@@ -136,7 +136,8 @@ export async function POST(req: Request) {
  * 3. Notifica Rafa sobre a ligação concluída (pede confirmação final dos horários)
  */
 async function dispararFluxoPosLigacao(params: {
-  supabase: ReturnType<typeof createSupabaseAdmin>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any;
   tenantId: string;
   telefoneLeadRaw: string;
   nomeLead: string;
