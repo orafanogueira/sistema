@@ -9,7 +9,9 @@ export const dynamic = "force-dynamic";
 async function fetchStats(periodo = 30) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !serviceKey) return null;
+  if (!supabaseUrl || !serviceKey) {
+    throw new Error(`Envs ausentes: url=${!!supabaseUrl} key=${!!serviceKey}`);
+  }
 
   const supabase = createSupabaseAdmin(supabaseUrl, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -127,13 +129,21 @@ async function fetchStats(periodo = 30) {
 }
 
 export default async function FunilPage() {
-  const stats = await fetchStats(30);
+  let stats;
+  let erroMsg = "";
+  try {
+    stats = await fetchStats(30);
+  } catch (e: unknown) {
+    erroMsg = e instanceof Error ? `${e.message}\n${e.stack?.slice(0, 500) || ""}` : "erro desconhecido";
+  }
 
   if (!stats) {
     return (
       <div className="space-y-4">
-        <div className="text-muted-foreground">
-          Erro ao carregar estatísticas. Verifica se as envs SUPABASE_SERVICE_ROLE_KEY e NEXT_PUBLIC_SUPABASE_URL estão no Vercel.
+        <h1 className="text-2xl font-bold">Funil de Prospecção — Erro</h1>
+        <div className="bg-red-500/10 border border-red-500/30 rounded p-4 text-sm">
+          <div className="font-semibold text-red-400 mb-2">Erro ao carregar:</div>
+          <pre className="whitespace-pre-wrap text-xs font-mono">{erroMsg || "sem erro especifico"}</pre>
         </div>
       </div>
     );
