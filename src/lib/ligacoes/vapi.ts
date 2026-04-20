@@ -56,7 +56,11 @@ export async function makeOutboundCall(opts: {
   phone: string;           // E.164: +5511999999999
   assistantId?: string;
   assistantConfig?: VapiAssistantConfig;
-  phoneNumberId?: string;  // Vapi phone number (você precisa ter um)
+  assistantOverrides?: {
+    firstMessage?: string;
+    model?: { messages?: Array<{ role: string; content: string }> };
+  };
+  phoneNumberId?: string;
   metadata?: Record<string, unknown>;
 }) {
   const body: Record<string, unknown> = {
@@ -65,6 +69,10 @@ export async function makeOutboundCall(opts: {
 
   if (opts.assistantId) {
     body.assistantId = opts.assistantId;
+    // Vapi permite sobrescrever campos do assistant persistente na chamada
+    if (opts.assistantOverrides) {
+      body.assistantOverrides = opts.assistantOverrides;
+    }
   } else if (opts.assistantConfig) {
     body.assistant = opts.assistantConfig;
   }

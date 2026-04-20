@@ -76,6 +76,15 @@ export async function POST(req: Request) {
   const isGroup = body.isGroup || body.isGroupMsg || body.chatName?.includes("@g.us") || false;
   const fromMe = body.fromMe || false;
 
+  // ⚠️ SE A MENSAGEM É DO RAFA (confirmando agendamento pendente), trata diferente
+  const rafaPhone = (process.env.WHATSAPP_RAFA_PHONE || "5581984576173").replace(/\D/g, "");
+  if (phone === rafaPhone && !isGroup && text) {
+    const resultadoConf = await processarConfirmacaoRafa(text);
+    if (resultadoConf) {
+      return NextResponse.json({ confirmacao_rafa: resultadoConf });
+    }
+  }
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceKey) return NextResponse.json({ error: "env" });
@@ -228,38 +237,37 @@ export async function POST(req: Request) {
     });
   }
 
-  // INTEGRAÇÃO GOOGLE CALENDAR: se o texto do lead tem horário → tenta agendar automaticamente
-  // Antes de responder com o que a IA gerou, se detectar intenção de horário, chama /agendar
+  // INTEGRAÇÃO GOOGLE CALENDAR COM CONFIRMAÇÃO DO RAFA:
+  // Quando o lead propõe horário, a IA NÃO agenda direto. Ela:
+  // 1. Cria um registro em agendamentos_pendentes (status aguardando_rafa)
+  // 2. Notifica o Rafa com o horário proposto + pergunta se pode agendar
+  // 3. Responde ao lead: "Vou confirmar com o Rafa e te mando o link em instantes"
+  // 4. Só quando o Rafa responder "SIM" (ou similar) no WhatsApp dele, o sistema cria o evento
   let respostaFinal = resposta;
   let agendamentoCriado: { meet_link?: string; data_hora?: string } | null = null;
+  let agendamentoPendente: { id?: string; horario?: string } | null = null;
 
   const temHorarioProposto = /\d{1,2}\s?h|\d{1,2}:\d{2}|terça|quarta|quinta|sexta|segunda|sábado|domingo|amanhã|hoje/i.test(text);
 
-  if (temHorarioProposto && (novaEtapa === "agendado" || textoLower.includes("confirma"))) {
+  if (temHorarioProposto && (novaEtapa === "agendado" || textoLower.includes("confirma") || textoLower.includes("tá bom") || textoLower.includes("funciona"))) {
     try {
-      const agendarRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/google-calendar/agendar`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tenant_id: tenantId,
-          horario_texto: text,
-          lead_nome: lead?.nome || phone,
-          lead_telefone: phone,
-          lead_id: leadId,
-          mensagem_id: msgDisparo.id,
-        }),
-      });
-      if (agendarRes.ok) {
-        const agendarData = await agendarRes.json();
-        if (agendarData.mensagem_pro_lead) {
-          respostaFinal = agendarData.mensagem_pro_lead;
-        }
-        if (agendarData.agendado && agendarData.meet_link) {
-          agendamentoCriado = { meet_link: agendarData.meet_link, data_hora: agendarData.data_hora };
-        }
-      }
+      // cria pendente aguardando confirmação do Rafa
+      const { data: pend } = await supabase.from("agendamentos_pendentes").insert({
+        tenant_id: tenantId,
+        lead_id: leadId,
+        mensagem_id: msgDisparo.id,
+        telefone_lead: phone,
+        nome_lead: lead?.nome || phone,
+        horario_proposto_texto: text,
+        status: "aguardando_rafa",
+      }).select().single();
+
+      agendamentoPendente = { id: pend?.id, horario: text };
+
+      // responde ao lead dizendo que vai confirmar com o Rafa
+      respostaFinal = `Perfeito! Só um instante enquanto eu confirmo com o Rafa se ele tem essa janela disponível. Te mando o link da call em instantes aqui. 🙌`;
     } catch {
-      // se falhar, mantém resposta da IA (sócio confirma manualmente)
+      // se falhar criar pendente, deixa resposta original da IA
     }
   }
 
@@ -296,6 +304,10 @@ export async function POST(req: Request) {
         const dtLabel = dt ? `${dt.toLocaleDateString("pt-BR")} às ${dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : "";
         header = `✅ *AGENDAMENTO AUTOMÁTICO CONFIRMADO*`;
         acao = `\n\n📅 ${dtLabel}\n🔗 ${agendamentoCriado.meet_link}\n\n*Link do Meet já foi enviado pro lead.*`;
+      } else if (agendamentoPendente?.id) {
+        // aguardando VOCÊ confirmar antes de criar evento
+        header = `⚠️ *CONFIRMAÇÃO NECESSÁRIA — lead propôs horário*`;
+        acao = `\n\n🕐 Horário proposto pelo lead:\n_"${text.slice(0, 150)}"_\n\n*👉 Responda AQUI com:*\n• *SIM* — pra confirmar e agendar no seu Calendar\n• *NÃO* — pra recusar\n• Um horário diferente (ex: "melhor terça 15h") — pra contra-propor\n\n_ID: ${agendamentoPendente.id.slice(0, 8)}_`;
       } else if (precisaConfirmar) {
         header = `⚠️ *CONFIRMAÇÃO NECESSÁRIA — IA pausou aguardando você*`;
         acao = `\n\n*👉 Responda aqui com o horário confirmado que eu repasso pro lead automaticamente.*`;
@@ -337,4 +349,139 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({ responded: true, etapa: novaEtapa || "em_conversa" });
+}
+
+/**
+ * Processa mensagens que vêm do número do Rafa pessoal.
+ * Interpreta como confirmação/rejeição/contra-proposta de agendamentos pendentes.
+ */
+async function processarConfirmacaoRafa(textoRaw: string) {
+  const texto = textoRaw.trim().toLowerCase();
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) return null;
+
+  const supabase = createSupabaseClient(url, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  // busca o agendamento pendente mais recente (últimos 24h)
+  const vinte_e_quatro_h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data: pendente } = await supabase.from("agendamentos_pendentes")
+    .select("*")
+    .eq("status", "aguardando_rafa")
+    .gte("created_at", vinte_e_quatro_h)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!pendente) return null;
+
+  const { tenant_id, lead_id, telefone_lead, nome_lead, horario_proposto_texto } = pendente;
+
+  // busca número Z-API ativo pra enviar mensagem pro lead
+  const { data: numeroZapi } = await supabase.from("whatsapp_numeros")
+    .select("zapi_instance_id,zapi_token")
+    .eq("is_active", true).limit(1).maybeSingle();
+  if (!numeroZapi) return null;
+
+  const clientToken = process.env.ZAPI_CLIENT_TOKEN || "";
+  const zapiBase = `https://api.z-api.io/instances/${numeroZapi.zapi_instance_id}/token/${numeroZapi.zapi_token}`;
+
+  // interpreta resposta do Rafa
+  const confirmou = /\b(sim|confirma|confirmado|ok|pode|beleza|fechado|aprovado|confirmar)\b/i.test(texto);
+  const rejeitou = /\b(não|nao|nope|nunca|recusa|cancela|rejeita)\b/i.test(texto);
+  const temContraProposta = /\d{1,2}\s?h|\d{1,2}:\d{2}|terça|quarta|quinta|sexta|segunda|sábado|domingo|amanhã|melhor|prefiro/i.test(texto);
+
+  // 1) CONFIRMOU → cria evento no Calendar + manda link pro lead
+  if (confirmou && !rejeitou) {
+    try {
+      const agendarRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/google-calendar/agendar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenant_id,
+          horario_texto: horario_proposto_texto,
+          lead_nome: nome_lead,
+          lead_telefone: telefone_lead,
+          lead_id,
+        }),
+      });
+
+      if (agendarRes.ok) {
+        const data = await agendarRes.json();
+        const mensagemProLead = data.mensagem_pro_lead || `Confirmado! Te mandei o link da call no horário combinado.`;
+
+        // manda pro lead
+        await fetch(`${zapiBase}/send-text`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Client-Token": clientToken },
+          body: JSON.stringify({ phone: telefone_lead, message: mensagemProLead }),
+        });
+
+        // atualiza pendente
+        await supabase.from("agendamentos_pendentes").update({
+          status: data.agendado ? "confirmado" : "rejeitado",
+          confirmado_at: new Date().toISOString(),
+          horario_proposto_iso: data.data_hora || null,
+        }).eq("id", pendente.id);
+
+        // confirma ao Rafa
+        const rafaPhone = (process.env.WHATSAPP_RAFA_PHONE || "5581984576173").replace(/\D/g, "");
+        await fetch(`${zapiBase}/send-text`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Client-Token": clientToken },
+          body: JSON.stringify({
+            phone: rafaPhone,
+            message: data.agendado
+              ? `✅ Feito! Evento criado no Calendar e link enviado pro ${nome_lead}.\n\n🔗 ${data.meet_link}`
+              : `⚠️ Horário ocupado na sua agenda. Sugeri outros horários pro lead escolher.`,
+          }),
+        });
+
+        return { acao: "confirmado", agendado: data.agendado };
+      }
+    } catch {}
+  }
+
+  // 2) REJEITOU
+  if (rejeitou && !confirmou && !temContraProposta) {
+    await supabase.from("agendamentos_pendentes").update({
+      status: "rejeitado",
+      rejeitado_at: new Date().toISOString(),
+    }).eq("id", pendente.id);
+
+    // manda pro lead uma msg dizendo que tá consultando outro horário
+    await fetch(`${zapiBase}/send-text`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Client-Token": clientToken },
+      body: JSON.stringify({
+        phone: telefone_lead,
+        message: `Poxa, esse horário não deu pro Rafa. Tem alguma outra janela que funciona pra você?`,
+      }),
+    });
+
+    return { acao: "rejeitado" };
+  }
+
+  // 3) CONTRA-PROPOSTA: Rafa mandou outro horário
+  if (temContraProposta) {
+    await supabase.from("agendamentos_pendentes").update({
+      status: "contra_proposta",
+      observacoes: `Rafa sugeriu: ${textoRaw}`,
+    }).eq("id", pendente.id);
+
+    await fetch(`${zapiBase}/send-text`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Client-Token": clientToken },
+      body: JSON.stringify({
+        phone: telefone_lead,
+        message: `Oi, aquele horário não rolou pro Rafa, mas ele sugeriu: ${textoRaw}. Funciona pra você?`,
+      }),
+    });
+
+    return { acao: "contra_proposta", horario: textoRaw };
+  }
+
+  return null;
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { makeOutboundCall, PROMPT_RAFA_PADRAO } from "@/lib/ligacoes/vapi";
 import { pegarNumeroVapi, detectCountryFromPhone } from "@/lib/ligacoes/selecionar-numero";
+import { montarPromptAna, montarFirstMessage } from "@/lib/ligacoes/prompt-builder";
 
 export const maxDuration = 120;
 
@@ -25,14 +26,30 @@ export async function POST(req: Request) {
     nome_campanha,
     script,
     voice_id,
+    nicho_id,
   }: {
     contatos: Contato[];
     nome_campanha?: string;
     script?: string;
     voice_id?: string;
+    nicho_id?: string;
   } = await req.json();
 
   if (!contatos || contatos.length === 0) return new NextResponse("contatos obrigatórios", { status: 400 });
+
+  // Se tiver nicho_id, busca o template e monta o script/firstMessage dinamicamente
+  let scriptFinal = script || PROMPT_RAFA_PADRAO;
+  let firstMessageFinal = "Oi, tudo bom? Aqui é a Ana, do Grupo Nogueira. Posso falar rapidinho com você?";
+  if (nicho_id) {
+    const { data: nicho } = await supabase.from("nichos_campanha")
+      .select("*")
+      .eq("id", nicho_id)
+      .maybeSingle();
+    if (nicho) {
+      scriptFinal = montarPromptAna(nicho);
+      firstMessageFinal = montarFirstMessage(nicho);
+    }
+  }
 
   const validos = contatos.filter((c) => {
     const tel = String(c.telefone || c.phone || "").replace(/\D/g, "");
@@ -46,10 +63,11 @@ export async function POST(req: Request) {
     tenant_id: m.tenant_id,
     nome: nome_campanha || `Ligações IA ${new Date().toISOString().slice(0, 16)}`,
     tipo: "ia_vapi",
-    script: script || PROMPT_RAFA_PADRAO,
-    voice_id: voice_id || "21m00Tcm4TlvDq8ikWAM", // Rachel (11labs)
+    script: scriptFinal,
+    voice_id: voice_id || "21m00Tcm4TlvDq8ikWAM",
     total_contatos: validos.length,
     status: "ativa",
+    nicho_id: nicho_id || null,
     criado_por: user.id,
   }).select().single();
 
@@ -64,7 +82,7 @@ export async function POST(req: Request) {
       model: "gpt-4o-mini",
       messages: [{
         role: "system",
-        content: `CRITICAL LANGUAGE RULE: You MUST ALWAYS respond in Brazilian Portuguese (português brasileiro). NEVER use English. All your responses MUST be in Portuguese with Brazilian expressions, slang and accent. Seu nome é Ana. Você fala português brasileiro fluente. NUNCA responda em inglês, mesmo que o usuário fale em inglês.\n\n${script || PROMPT_RAFA_PADRAO}`,
+        content: `CRITICAL LANGUAGE RULE: You MUST ALWAYS respond in Brazilian Portuguese (português brasileiro). NEVER use English. All your responses MUST be in Portuguese with Brazilian expressions, slang and accent. Seu nome é Ana. Você fala português brasileiro fluente. NUNCA responda em inglês, mesmo que o usuário fale em inglês.\n\n${scriptFinal}`,
       }],
       temperature: 0.7,
     },
@@ -77,7 +95,7 @@ export async function POST(req: Request) {
       model: "nova-2",
       language: "pt-BR",
     },
-    firstMessage: "Oi, tudo bom? Aqui é a Ana, do Grupo Nogueira. Posso falar rapidinho com você?",
+    firstMessage: firstMessageFinal,
     firstMessageMode: "assistant-speaks-first" as const,
     endCallMessage: "Muito obrigada pelo seu tempo! Qualquer coisa estou por aqui. Até mais!",
     backgroundSound: "off" as const,
@@ -121,10 +139,19 @@ export async function POST(req: Request) {
     }).select().single();
 
     try {
+      // Se usa Assistant persistente + tem nicho selecionado, sobrescreve firstMessage e system prompt
+      const overrides = (persistentAssistantId && nicho_id) ? {
+        firstMessage: firstMessageFinal,
+        model: {
+          messages: [{ role: "system", content: scriptFinal }],
+        },
+      } : undefined;
+
       const call = await makeOutboundCall({
         phone: telFinal,
         assistantId: persistentAssistantId,
         assistantConfig: assistantConfig || undefined,
+        assistantOverrides: overrides,
         phoneNumberId: numeroSelecionado.phoneNumberId,
         metadata: {
           ligacao_id: ligRow?.id,
@@ -132,6 +159,7 @@ export async function POST(req: Request) {
           lead_nome: contato.nome,
           lead_empresa: contato.empresa,
           pais: paisDetectado,
+          nicho_id,
         },
       });
 

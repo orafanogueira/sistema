@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
@@ -50,16 +50,37 @@ Regras:
 - Máximo 2 frases por vez
 - Português brasileiro`;
 
+interface Nicho {
+  id: string;
+  slug: string;
+  nome: string;
+  setor_descricao?: string;
+  is_default?: boolean;
+}
+
 export function LigacoesUI({ ligacoes: initial, filas }: { ligacoes: Ligacao[]; filas: Fila[] }) {
   const [ligacoes] = useState(initial);
   const [loading, setLoading] = useState(false);
   const [modo, setModo] = useState<"ia" | "manual">("ia");
+  const [nichos, setNichos] = useState<Nicho[]>([]);
   const [form, setForm] = useState({
     nome_campanha: `Campanha ${new Date().toISOString().slice(0, 10)}`,
     telefones_txt: "",
     script: SCRIPT_PADRAO,
-    voice_id: "pt-BR-FranciscaNeural", // Azure PT-BR nativo
+    voice_id: "pt-BR-FranciscaNeural",
+    nicho_id: "",
   });
+
+  useEffect(() => {
+    fetch("/api/ligacoes/nichos")
+      .then((r) => r.json())
+      .then((data: Nicho[]) => {
+        setNichos(data);
+        const def = data.find((n) => n.is_default) || data[0];
+        if (def) setForm((f) => ({ ...f, nicho_id: def.id }));
+      })
+      .catch(() => {});
+  }, []);
 
   const dispararIA = async () => {
     const linhas = form.telefones_txt.split("\n").map((l) => l.trim()).filter(Boolean);
@@ -84,6 +105,7 @@ export function LigacoesUI({ ligacoes: initial, filas }: { ligacoes: Ligacao[]; 
           nome_campanha: form.nome_campanha,
           script: form.script,
           voice_id: form.voice_id,
+          nicho_id: form.nicho_id || undefined,
         }),
       });
       if (!r.ok) throw new Error(await r.text());
@@ -135,9 +157,29 @@ export function LigacoesUI({ ligacoes: initial, filas }: { ligacoes: Ligacao[]; 
               </div>
             </div>
 
-            <div>
-              <Label>Nome da campanha</Label>
-              <Input className="mt-1" value={form.nome_campanha} onChange={(e) => setForm({ ...form, nome_campanha: e.target.value })} />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Nome da campanha</Label>
+                <Input className="mt-1" value={form.nome_campanha} onChange={(e) => setForm({ ...form, nome_campanha: e.target.value })} />
+              </div>
+              <div>
+                <Label>🎯 Nicho do lead (adapta o script)</Label>
+                <select
+                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background/40 px-3 text-sm"
+                  value={form.nicho_id}
+                  onChange={(e) => setForm({ ...form, nicho_id: e.target.value })}
+                >
+                  <option value="">Roteiro padrão</option>
+                  {nichos.map((n) => (
+                    <option key={n.id} value={n.id}>
+                      {n.is_default ? "⭐ " : ""}{n.nome}
+                    </option>
+                  ))}
+                </select>
+                <div className="text-[10px] text-muted-foreground mt-1">
+                  A Ana adapta a apresentação e exemplos pro nicho escolhido.
+                </div>
+              </div>
             </div>
 
             <div>
