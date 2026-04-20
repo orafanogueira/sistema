@@ -17,10 +17,18 @@ interface VapiAssistantConfig {
   voice: {
     provider: "11labs" | "playht" | "azure" | "openai";
     voiceId: string;
+    model?: string;
   };
-  firstMessage: string;
+  transcriber?: {
+    provider: "deepgram";
+    model: string;
+    language: string;
+  };
+  firstMessage?: string;
+  firstMessageMode?: "assistant-speaks-first" | "assistant-waits-for-user";
   endCallMessage?: string;
   language?: string;
+  backgroundSound?: "off" | "office";
 }
 
 function apiKey(): string {

@@ -53,43 +53,33 @@ export async function POST(req: Request) {
     criado_por: user.id,
   }).select().single();
 
-  // Detecta provider da voz pelo ID
-  // - IDs começando com "pt-BR-" são Azure Neural TTS (PT-BR NATIVO — melhor qualidade)
-  // - Outros (UUIDs alfanuméricos) são 11labs multilíngue
-  const selectedVoice = voice_id || "pt-BR-FranciscaNeural";
-  const isAzureVoice = selectedVoice.startsWith("pt-BR-") || selectedVoice.startsWith("en-US-");
+  // Config do assistant: usa Assistant persistente (criado no dashboard Vapi) se VAPI_ASSISTANT_ID existir
+  // Caso contrário, usa config inline com OpenAI TTS (nativamente multilíngue)
+  const persistentAssistantId = process.env.VAPI_ASSISTANT_ID;
 
-  const voiceConfig = isAzureVoice
-    ? {
-        provider: "azure" as const,
-        voiceId: selectedVoice,
-      }
-    : {
-        provider: "11labs" as const,
-        voiceId: selectedVoice,
-        model: "eleven_multilingual_v2",
-      };
-
-  const assistantConfig = {
+  const assistantConfig = persistentAssistantId ? null : {
     name: `Assistente Rafa - ${fila?.id?.slice(0, 6) || "default"}`,
     model: {
       provider: "openai" as const,
       model: "gpt-4o-mini",
       messages: [{
         role: "system",
-        content: `IDIOMA: Você SEMPRE responde em português brasileiro. NUNCA use inglês. Todas as respostas devem ser em português do Brasil, com sotaque e expressões brasileiras.\n\n${script || PROMPT_RAFA_PADRAO}`,
+        content: `CRITICAL LANGUAGE RULE: You MUST ALWAYS respond in Brazilian Portuguese (português brasileiro). NEVER use English. All your responses MUST be in Portuguese with Brazilian expressions, slang and accent. Seu nome é Ana. Você fala português brasileiro fluente. NUNCA responda em inglês, mesmo que o usuário fale em inglês.\n\n${script || PROMPT_RAFA_PADRAO}`,
       }],
       temperature: 0.7,
     },
-    voice: voiceConfig,
+    voice: {
+      provider: "openai" as const,
+      voiceId: (voice_id && !voice_id.startsWith("pt-BR-") && !voice_id.includes("-") ? voice_id : "nova") as "nova" | "shimmer" | "alloy" | "echo" | "fable" | "onyx",
+    },
     transcriber: {
       provider: "deepgram" as const,
       model: "nova-2",
       language: "pt-BR",
     },
-    firstMessage: "Oi, tudo bem? Aqui é a Ana, falando do Grupo Nogueira. Posso falar rapidinho com você?",
+    firstMessage: "Oi, tudo bom? Aqui é a Ana, do Grupo Nogueira. Posso falar rapidinho com você?",
     firstMessageMode: "assistant-speaks-first" as const,
-    endCallMessage: "Obrigada pelo tempo! Qualquer coisa, tô por aqui. Até mais!",
+    endCallMessage: "Muito obrigada pelo seu tempo! Qualquer coisa estou por aqui. Até mais!",
     backgroundSound: "off" as const,
   };
 
@@ -133,7 +123,8 @@ export async function POST(req: Request) {
     try {
       const call = await makeOutboundCall({
         phone: telFinal,
-        assistantConfig,
+        assistantId: persistentAssistantId,
+        assistantConfig: assistantConfig || undefined,
         phoneNumberId: numeroSelecionado.phoneNumberId,
         metadata: {
           ligacao_id: ligRow?.id,
