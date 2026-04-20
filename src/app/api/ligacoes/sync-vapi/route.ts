@@ -24,8 +24,29 @@ export async function POST() {
     .order("created_at", { ascending: false })
     .limit(100);
 
+  // Debug: conta quantas ligações existem no total vs quantas têm vapi_call_id
+  const { count: totalLigacoes } = await supabase.from("ligacoes")
+    .select("*", { count: "exact", head: true })
+    .gte("created_at", seteDiasAtras);
+  const { count: comVapiId } = await supabase.from("ligacoes")
+    .select("*", { count: "exact", head: true })
+    .not("vapi_call_id", "is", null)
+    .gte("created_at", seteDiasAtras);
+
   if (!ligacoes || ligacoes.length === 0) {
-    return NextResponse.json({ atualizadas: 0, mensagem: "Nenhuma ligação pendente pra sincronizar" });
+    return NextResponse.json({
+      atualizadas: 0,
+      debug: {
+        total_ligacoes_7_dias: totalLigacoes || 0,
+        com_vapi_call_id: comVapiId || 0,
+        sem_vapi_call_id: (totalLigacoes || 0) - (comVapiId || 0),
+      },
+      mensagem: (totalLigacoes || 0) === 0
+        ? "Nenhuma ligação nos últimos 7 dias"
+        : (comVapiId || 0) === 0
+        ? "Ligações existem mas nenhuma tem vapi_call_id salvo — bug no disparar-ia. Faça uma ligação nova pra testar."
+        : "Todas as ligações já estão sincronizadas",
+    });
   }
 
   let atualizadas = 0;

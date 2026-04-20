@@ -13,11 +13,18 @@ export function SyncVapiButton() {
       const r = await fetch("/api/ligacoes/sync-vapi", { method: "POST" });
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
-      toast.success(
-        `${data.atualizadas} ligações atualizadas`,
-        `${data.disparou_fluxo_pos || 0} fluxos pós-ligação disparados`
-      );
-      setTimeout(() => window.location.reload(), 1500);
+      if (data.atualizadas === 0 && data.debug) {
+        toast.error(
+          `${data.atualizadas} ligações atualizadas`,
+          data.mensagem || `Total: ${data.debug.total_ligacoes_7_dias} · Com ID Vapi: ${data.debug.com_vapi_call_id} · Sem ID: ${data.debug.sem_vapi_call_id}`
+        );
+      } else {
+        toast.success(
+          `${data.atualizadas} ligações atualizadas`,
+          `${data.disparou_fluxo_pos || 0} fluxos pós-ligação disparados`
+        );
+      }
+      setTimeout(() => window.location.reload(), 2500);
     } catch (e: unknown) {
       toast.error("Erro", e instanceof Error ? e.message : "tente novamente");
     } finally {
