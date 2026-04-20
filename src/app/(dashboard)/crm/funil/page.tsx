@@ -1,26 +1,142 @@
-import { TrendingUp, Phone, MessageSquare, Mail, Calendar, Target, Users, Zap } from "lucide-react";
+import { TrendingUp, Phone, MessageSquare, Mail, Calendar, Users, Zap } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FunilUI } from "@/components/crm/funil-ui";
+import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
-async function fetchStats() {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.gruponogueiramkt.com";
-  try {
-    const r = await fetch(`${baseUrl}/api/crm/estatisticas?periodo=30`, { cache: "no-store" });
-    if (!r.ok) return null;
-    return await r.json();
-  } catch {
-    return null;
+async function fetchStats(periodo = 30) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) return null;
+
+  const supabase = createSupabaseAdmin(supabaseUrl, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const desde = new Date(Date.now() - periodo * 24 * 60 * 60 * 1000).toISOString();
+
+  const countOf = async (table: string, filters: Array<[string, unknown]> = []) => {
+    let q = supabase.from(table).select("*", { count: "exact", head: true }).gte("created_at", desde);
+    for (const [col, val] of filters) {
+      q = q.eq(col, val);
+    }
+    const { count } = await q;
+    return count || 0;
+  };
+
+  const [
+    ligTotal, ligAtendidas, ligSemResposta, ligAgendou, ligSemInteresse,
+    waEnviados, waRespondidos, waErros,
+    emailEnviados, emailErros,
+    agendPendentes, agendConfirmados, agendRejeitados,
+    eventosCriados, eventosRealizados,
+    atividadesTotal,
+  ] = await Promise.all([
+    countOf("ligacoes"),
+    countOf("ligacoes", [["status", "atendida"]]),
+    countOf("ligacoes", [["status", "sem_resposta"]]),
+    countOf("ligacoes", [["resultado", "agendou"]]),
+    countOf("ligacoes", [["resultado", "sem_interesse"]]),
+    countOf("disparo_mensagens", [["status", "enviado"]]),
+    countOf("disparo_mensagens", [["status", "respondido"]]),
+    countOf("disparo_mensagens", [["status", "erro"]]),
+    countOf("email_mensagens", [["status", "enviado"]]),
+    countOf("email_mensagens", [["status", "erro"]]),
+    countOf("agendamentos_pendentes", [["status", "aguardando_rafa"]]),
+    countOf("agendamentos_pendentes", [["status", "confirmado"]]),
+    countOf("agendamentos_pendentes", [["status", "rejeitado"]]),
+    countOf("agendamentos_ia", [["status", "agendado"]]),
+    countOf("agendamentos_ia", [["status", "realizado"]]),
+    countOf("prospeccao_atividades"),
+  ]);
+
+  const { data: leadsEtapa } = await supabase.from("prospeccao_leads").select("status").gte("updated_at", desde);
+  const leadsPorEtapa: Record<string, number> = {};
+  (leadsEtapa || []).forEach((l) => {
+    const s = l.status || "novo";
+    leadsPorEtapa[s] = (leadsPorEtapa[s] || 0) + 1;
+  });
+
+  const { data: leadsOrigem } = await supabase.from("prospeccao_leads").select("origem").gte("created_at", desde);
+  const leadsPorOrigem: Record<string, number> = {};
+  (leadsOrigem || []).forEach((l) => {
+    const o = l.origem || "manual";
+    leadsPorOrigem[o] = (leadsPorOrigem[o] || 0) + 1;
+  });
+
+  // whatsapp enviado após ligação agendou
+  const { data: ligAgendaram } = await supabase.from("ligacoes")
+    .select("telefone, created_at")
+    .eq("resultado", "agendou")
+    .gte("created_at", desde);
+
+  let whatsappPosLigacao = 0;
+  for (const lig of ligAgendaram || []) {
+    const { count } = await supabase.from("disparo_mensagens")
+      .select("*", { count: "exact", head: true })
+      .eq("telefone_destino", lig.telefone.replace(/\D/g, ""))
+      .gte("created_at", lig.created_at);
+    if (count && count > 0) whatsappPosLigacao++;
   }
+
+  const pct = (num: number, den: number) => (den === 0 ? 0 : Number(((num / den) * 100).toFixed(1)));
+
+  return {
+    periodo_dias: periodo,
+    funil: {
+      ligacoes_disparadas: ligTotal,
+      ligacoes_atendidas: ligAtendidas,
+      ligacoes_com_interesse: ligAgendou,
+      whatsapp_apos_ligacao: whatsappPosLigacao,
+      agendamento_proposto: agendPendentes,
+      agendamento_confirmado: agendConfirmados,
+      evento_criado_calendar: eventosCriados,
+      reuniao_realizada: eventosRealizados,
+    },
+    conversoes: {
+      taxa_atendimento: pct(ligAtendidas, ligTotal),
+      taxa_interesse_apos_atender: pct(ligAgendou, ligAtendidas),
+      taxa_proposta_apos_interesse: pct(agendPendentes, ligAgendou),
+      taxa_confirmacao: pct(agendConfirmados, agendPendentes),
+      taxa_evento_calendar: pct(eventosCriados, agendConfirmados),
+      taxa_reuniao_apos_evento: pct(eventosRealizados, eventosCriados),
+      taxa_total_lig_ate_reuniao: pct(eventosRealizados, ligTotal),
+    },
+    ligacoes: {
+      total: ligTotal,
+      atendidas: ligAtendidas,
+      sem_resposta: ligSemResposta,
+      agendou: ligAgendou,
+      sem_interesse: ligSemInteresse,
+    },
+    whatsapp: { enviados: waEnviados, respondidos: waRespondidos, erros: waErros },
+    email: { enviados: emailEnviados, erros: emailErros },
+    agendamentos: {
+      pendentes_confirmacao_rafa: agendPendentes,
+      confirmados_pelo_rafa: agendConfirmados,
+      rejeitados: agendRejeitados,
+      eventos_calendar_criados: eventosCriados,
+      reunioes_realizadas: eventosRealizados,
+    },
+    leads_por_etapa: leadsPorEtapa,
+    leads_por_origem: leadsPorOrigem,
+    total_atividades: atividadesTotal,
+  };
 }
 
 export default async function FunilPage() {
-  const stats = await fetchStats();
+  const stats = await fetchStats(30);
 
   if (!stats) {
-    return <div className="text-muted-foreground">Erro ao carregar estatísticas</div>;
+    return (
+      <div className="space-y-4">
+        <div className="text-muted-foreground">
+          Erro ao carregar estatísticas. Verifica se as envs SUPABASE_SERVICE_ROLE_KEY e NEXT_PUBLIC_SUPABASE_URL estão no Vercel.
+        </div>
+      </div>
+    );
   }
 
   const f = stats.funil;
@@ -34,11 +150,9 @@ export default async function FunilPage() {
         </h1>
         <p className="text-muted-foreground">
           Rastreabilidade completa — últimos {stats.periodo_dias} dias.
-          Cada etapa da ligação IA até a reunião realizada no Google Calendar.
         </p>
       </div>
 
-      {/* Funil visual */}
       <Card>
         <CardHeader>
           <CardTitle className="text-sm">Funil de Conversão</CardTitle>
@@ -48,7 +162,6 @@ export default async function FunilPage() {
         </CardContent>
       </Card>
 
-      {/* KPIs por canal */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         <Card>
           <CardContent className="p-4">
@@ -98,7 +211,9 @@ export default async function FunilPage() {
               <span className="text-xs text-muted-foreground uppercase">Reuniões</span>
               <Calendar className="h-4 w-4 text-amber-400" />
             </div>
-            <div className="text-3xl font-black text-amber-400">{stats.agendamentos.eventos_calendar_criados}</div>
+            <div className="text-3xl font-black text-amber-400">
+              {stats.agendamentos.eventos_calendar_criados}
+            </div>
             <div className="text-[11px] text-muted-foreground mt-1">
               {stats.agendamentos.reunioes_realizadas} realizadas · {stats.agendamentos.pendentes_confirmacao_rafa} pendentes
             </div>
@@ -106,7 +221,6 @@ export default async function FunilPage() {
         </Card>
       </div>
 
-      {/* Agendamentos detalhado */}
       <Card>
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
@@ -117,35 +231,36 @@ export default async function FunilPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="bg-background/40 border border-border rounded p-3">
               <div className="text-[10px] text-muted-foreground uppercase">Propostos pelo lead</div>
-              <div className="text-2xl font-black text-amber-400 mt-1">{stats.agendamentos.pendentes_confirmacao_rafa}</div>
+              <div className="text-2xl font-black text-amber-400 mt-1">
+                {stats.agendamentos.pendentes_confirmacao_rafa}
+              </div>
               <div className="text-[10px] text-muted-foreground">aguardando sua confirmação</div>
             </div>
             <div className="bg-background/40 border border-border rounded p-3">
               <div className="text-[10px] text-muted-foreground uppercase">Confirmados por você</div>
-              <div className="text-2xl font-black text-cyan mt-1">{stats.agendamentos.confirmados_pelo_rafa}</div>
+              <div className="text-2xl font-black text-cyan mt-1">
+                {stats.agendamentos.confirmados_pelo_rafa}
+              </div>
               <div className="text-[10px] text-muted-foreground">você respondeu SIM</div>
             </div>
             <div className="bg-background/40 border border-border rounded p-3">
               <div className="text-[10px] text-muted-foreground uppercase">No Google Calendar</div>
-              <div className="text-2xl font-black text-green-500 mt-1">{stats.agendamentos.eventos_calendar_criados}</div>
+              <div className="text-2xl font-black text-green-500 mt-1">
+                {stats.agendamentos.eventos_calendar_criados}
+              </div>
               <div className="text-[10px] text-muted-foreground">evento + link Meet</div>
             </div>
             <div className="bg-background/40 border border-border rounded p-3">
               <div className="text-[10px] text-muted-foreground uppercase">Reuniões realizadas</div>
-              <div className="text-2xl font-black text-purple-400 mt-1">{stats.agendamentos.reunioes_realizadas}</div>
+              <div className="text-2xl font-black text-purple-400 mt-1">
+                {stats.agendamentos.reunioes_realizadas}
+              </div>
               <div className="text-[10px] text-muted-foreground">lead compareceu</div>
             </div>
-          </div>
-
-          <div className="mt-4 text-[11px] text-muted-foreground">
-            📍 Todos os eventos são criados no seu Google Calendar conectado ({
-              process.env.NEXT_PUBLIC_APP_URL
-            }/configuracoes/calendar) com Google Meet automático.
           </div>
         </CardContent>
       </Card>
 
-      {/* Por origem / por etapa */}
       <div className="grid md:grid-cols-2 gap-3">
         <Card>
           <CardHeader>
@@ -155,10 +270,10 @@ export default async function FunilPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {Object.entries(stats.leads_por_origem as Record<string, number>).map(([origem, qtd]) => (
+              {Object.entries(stats.leads_por_origem).map(([origem, qtd]) => (
                 <div key={origem} className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">{origem}</span>
-                  <Badge variant="secondary">{qtd}</Badge>
+                  <Badge variant="secondary">{qtd as number}</Badge>
                 </div>
               ))}
               {Object.keys(stats.leads_por_origem).length === 0 && (
@@ -176,10 +291,10 @@ export default async function FunilPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {Object.entries(stats.leads_por_etapa as Record<string, number>).map(([etapa, qtd]) => (
+              {Object.entries(stats.leads_por_etapa).map(([etapa, qtd]) => (
                 <div key={etapa} className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">{etapa}</span>
-                  <Badge variant="secondary">{qtd}</Badge>
+                  <Badge variant="secondary">{qtd as number}</Badge>
                 </div>
               ))}
               {Object.keys(stats.leads_por_etapa).length === 0 && (
