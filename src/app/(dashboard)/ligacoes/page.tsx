@@ -1,6 +1,7 @@
 import { Phone } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { LigacoesUI } from "@/components/ligacoes/ligacoes-ui";
+import { VapiNumerosUI } from "@/components/ligacoes/vapi-numeros-ui";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,8 @@ export default async function LigacoesPage() {
           Também tem fluxo manual pra humano fazer as ligações.
         </p>
       </div>
+
+      <VapiNumerosUI />
 
       <LigacoesUI
         ligacoes={ligacoes || []}

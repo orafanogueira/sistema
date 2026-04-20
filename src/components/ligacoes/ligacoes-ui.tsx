@@ -179,6 +179,12 @@ export function LigacoesUI({ ligacoes: initial, filas }: { ligacoes: Ligacao[]; 
               </div>
             </div>
 
+            <div className="bg-background/40 border border-border rounded p-2 text-[10px] text-muted-foreground">
+              🌎 <b>Seleção de país automática:</b> o sistema detecta o país pelo prefixo do telefone
+              (+55 = BR, +1 = US) e usa o número Vapi correspondente da lista acima.
+              Cadastre pelo menos 1 número (com &quot;Default&quot;) pra funcionar.
+            </div>
+
             <Button onClick={dispararIA} disabled={loading} className="w-full">
               {loading ? (
                 <><Loader2 className="h-4 w-4 animate-spin" /> Disparando ligações...</>

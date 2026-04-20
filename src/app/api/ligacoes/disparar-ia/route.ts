@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { makeOutboundCall, PROMPT_RAFA_PADRAO } from "@/lib/ligacoes/vapi";
+import { pegarNumeroVapi, detectCountryFromPhone } from "@/lib/ligacoes/selecionar-numero";
 
 export const maxDuration = 120;
 
@@ -75,7 +76,21 @@ export async function POST(req: Request) {
 
   for (const contato of validos) {
     const telLimpo = String(contato.telefone || contato.phone || "").replace(/\D/g, "");
-    const telFinal = telLimpo.startsWith("55") ? `+${telLimpo}` : `+55${telLimpo}`;
+    // normaliza pra E.164 baseado no país detectado
+    let telFinal: string;
+    if (telLimpo.startsWith("55") && telLimpo.length >= 12) telFinal = `+${telLimpo}`;
+    else if (telLimpo.startsWith("1") && telLimpo.length === 11) telFinal = `+${telLimpo}`;
+    else if (telLimpo.length === 10 || telLimpo.length === 11) telFinal = `+55${telLimpo}`;
+    else telFinal = `+${telLimpo}`;
+
+    const paisDetectado = detectCountryFromPhone(telFinal);
+    const numeroSelecionado = await pegarNumeroVapi(m.tenant_id, telFinal);
+
+    if (!numeroSelecionado) {
+      erros++;
+      detalhes.push({ telefone: telLimpo, status: "erro", erro: "Nenhum número Vapi configurado" });
+      continue;
+    }
 
     // cria registro de ligação
     const { data: ligRow } = await supabase.from("ligacoes").insert({
@@ -87,18 +102,22 @@ export async function POST(req: Request) {
       tipo: "ia_vapi",
       status: "pendente",
       script_usado: script || PROMPT_RAFA_PADRAO,
+      vapi_numero_id: numeroSelecionado.numeroId || null,
       created_by: user.id,
+      observacoes: `País: ${paisDetectado} · Número Vapi: ${numeroSelecionado.fonte}`,
     }).select().single();
 
     try {
       const call = await makeOutboundCall({
         phone: telFinal,
         assistantConfig,
+        phoneNumberId: numeroSelecionado.phoneNumberId,
         metadata: {
           ligacao_id: ligRow?.id,
           tenant_id: m.tenant_id,
           lead_nome: contato.nome,
           lead_empresa: contato.empresa,
+          pais: paisDetectado,
         },
       });
 
