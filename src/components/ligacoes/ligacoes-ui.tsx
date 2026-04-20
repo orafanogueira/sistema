@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Phone, PhoneCall, Bot, User as UserIcon, Play, Clock, CheckCircle2, XCircle, AlertCircle, MapPin } from "lucide-react";
 import { toast } from "@/components/ui/toaster";
 import { ExtratorLeads } from "./extrator-leads";
+import { SyncVapiButton } from "./sync-vapi-button";
 
 interface Ligacao {
   id: string;
@@ -314,7 +315,10 @@ export function LigacoesUI({ ligacoes: initial, filas }: { ligacoes: Ligacao[]; 
       {ligacoes.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Últimas ligações</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm">Últimas ligações</CardTitle>
+              <SyncVapiButton />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="max-h-[500px] overflow-y-auto">
