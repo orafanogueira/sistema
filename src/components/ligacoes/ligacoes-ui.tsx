@@ -58,7 +58,7 @@ export function LigacoesUI({ ligacoes: initial, filas }: { ligacoes: Ligacao[]; 
     nome_campanha: `Campanha ${new Date().toISOString().slice(0, 10)}`,
     telefones_txt: "",
     script: SCRIPT_PADRAO,
-    voice_id: "21m00Tcm4TlvDq8ikWAM",
+    voice_id: "XB0fDUnXU5powFXDhCwa", // Charlotte PT-BR
   });
 
   const dispararIA = async () => {
@@ -169,13 +169,21 @@ export function LigacoesUI({ ligacoes: initial, filas }: { ligacoes: Ligacao[]; 
                 value={form.voice_id}
                 onChange={(e) => setForm({ ...form, voice_id: e.target.value })}
               >
-                <option value="21m00Tcm4TlvDq8ikWAM">Rachel (feminina, EN com acento natural)</option>
-                <option value="AZnzlk1XvdvUeBnXmlld">Domi (feminina jovem)</option>
-                <option value="EXAVITQu4vr4xnSDxMaL">Bella (feminina suave)</option>
-                <option value="ErXwobaYiN019PkySvjV">Antoni (masculina)</option>
+                <optgroup label="🇧🇷 Vozes que falam bem em Português (multilíngue)">
+                  <option value="XB0fDUnXU5powFXDhCwa">Charlotte (feminina, sotaque neutro) ⭐</option>
+                  <option value="XrExE9yKIg1WjnnlVkGX">Matilda (feminina, jovem)</option>
+                  <option value="pNInz6obpgDQGcFmaJgB">Adam (masculina, calma)</option>
+                  <option value="TxGEqnHWrfWFTfGW9XjX">Josh (masculina, profissional)</option>
+                  <option value="onwK4e9ZLuTAKqWW03F9">Daniel (masculina, narrativa)</option>
+                </optgroup>
+                <optgroup label="🇺🇸 Vozes em Inglês">
+                  <option value="21m00Tcm4TlvDq8ikWAM">Rachel (feminina)</option>
+                  <option value="AZnzlk1XvdvUeBnXmlld">Domi (feminina jovem)</option>
+                </optgroup>
               </select>
               <div className="text-[10px] text-muted-foreground mt-1">
-                Vozes 11labs via Vapi. Pode usar vozes em português — configure em dashboard.vapi.ai
+                Pra prospecção no Brasil, use as vozes marcadas com 🇧🇷 (modelo eleven_multilingual_v2).
+                Teste antes com seu número pra avaliar naturalidade.
               </div>
             </div>
 

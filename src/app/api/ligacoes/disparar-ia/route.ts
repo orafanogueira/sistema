@@ -58,16 +58,30 @@ export async function POST(req: Request) {
     model: {
       provider: "openai" as const,
       model: "gpt-4o-mini",
-      messages: [{ role: "system", content: script || PROMPT_RAFA_PADRAO }],
+      messages: [{
+        role: "system",
+        content: `IMPORTANTE: Você SEMPRE fala em português brasileiro. Nunca use inglês.\n\n${script || PROMPT_RAFA_PADRAO}`,
+      }],
       temperature: 0.7,
     },
     voice: {
       provider: "11labs" as const,
-      voiceId: voice_id || "21m00Tcm4TlvDq8ikWAM",
+      voiceId: voice_id || "XB0fDUnXU5powFXDhCwa", // Charlotte — multilíngue, fala PT bem
+      model: "eleven_multilingual_v2", // modelo multilíngue (obrigatório pra PT)
+      language: "pt",
+      stability: 0.5,
+      similarityBoost: 0.75,
     },
-    firstMessage: "Oi, tudo bem? Aqui é a Ana, do Grupo Nogueira, posso falar rapidinho?",
+    transcriber: {
+      provider: "deepgram" as const,
+      model: "nova-2",
+      language: "pt-BR",
+    },
+    firstMessage: "Oi, tudo bem? Aqui é a Ana, falando do Grupo Nogueira. Posso falar rapidinho com você?",
+    firstMessageMode: "assistant-speaks-first" as const,
     endCallMessage: "Obrigada pelo tempo! Qualquer coisa, tô por aqui. Até mais!",
     language: "pt-BR",
+    backgroundSound: "off" as const,
   };
 
   let disparadas = 0;
