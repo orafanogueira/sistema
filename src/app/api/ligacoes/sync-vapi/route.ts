@@ -89,6 +89,14 @@ async function runSync(force: boolean) {
       } else {
         atualizadas++;
         detalhes.push({ id: lig.id.slice(0, 8), resultado, call_status: call.status });
+
+        // Se lead aceitou conversar, dispara simulação do fluxo pós-ligação (manda WhatsApp com horários + notifica Rafa)
+        if (resultado === "agendou") {
+          try {
+            const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.gruponogueiramkt.com";
+            await fetch(`${appUrl}/api/ligacoes/simular-agendou?telefone=${encodeURIComponent(lig.telefone)}&nome=${encodeURIComponent(lig.nome || "lead")}`);
+          } catch {}
+        }
       }
     } catch (e: unknown) {
       detalhes.push({ id: lig.id.slice(0, 8), erro: e instanceof Error ? e.message : "erro" });
