@@ -244,7 +244,6 @@ export async function POST(req: Request) {
   // 3. Responde ao lead: "Vou confirmar com o Rafa e te mando o link em instantes"
   // 4. Só quando o Rafa responder "SIM" (ou similar) no WhatsApp dele, o sistema cria o evento
   let respostaFinal = resposta;
-  let agendamentoCriado: { meet_link?: string; data_hora?: string } | null = null;
   let agendamentoPendente: { id?: string; horario?: string } | null = null;
 
   const temHorarioProposto = /\d{1,2}\s?h|\d{1,2}:\d{2}|terça|quarta|quinta|sexta|segunda|sábado|domingo|amanhã|hoje/i.test(text);
@@ -298,13 +297,7 @@ export async function POST(req: Request) {
       let header = `🤖 *IA Autoatendimento*`;
       let acao = "";
 
-      if (agendamentoCriado) {
-        // IA já agendou automaticamente via Google Calendar
-        const dt = agendamentoCriado.data_hora ? new Date(agendamentoCriado.data_hora) : null;
-        const dtLabel = dt ? `${dt.toLocaleDateString("pt-BR")} às ${dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : "";
-        header = `✅ *AGENDAMENTO AUTOMÁTICO CONFIRMADO*`;
-        acao = `\n\n📅 ${dtLabel}\n🔗 ${agendamentoCriado.meet_link}\n\n*Link do Meet já foi enviado pro lead.*`;
-      } else if (agendamentoPendente?.id) {
+      if (agendamentoPendente?.id) {
         // aguardando VOCÊ confirmar antes de criar evento
         header = `⚠️ *CONFIRMAÇÃO NECESSÁRIA — lead propôs horário*`;
         acao = `\n\n🕐 Horário proposto pelo lead:\n_"${text.slice(0, 150)}"_\n\n*👉 Responda AQUI com:*\n• *SIM* — pra confirmar e agendar no seu Calendar\n• *NÃO* — pra recusar\n• Um horário diferente (ex: "melhor terça 15h") — pra contra-propor\n\n_ID: ${agendamentoPendente.id.slice(0, 8)}_`;
