@@ -157,10 +157,16 @@ export async function POST(req: Request) {
     }
   }
 
+  // conta erros e mostra os primeiros 3 erros no response pra debug
+  const erros = detalhes.filter((d) => d.erro);
+  const primeiroErro = erros[0]?.erro;
+
   return NextResponse.json({
     total: ligacoes.length,
     atualizadas,
+    erros: erros.length,
     disparou_fluxo_pos: disparouFluxoPos,
+    primeiro_erro: primeiroErro || null,
     detalhes: detalhes.slice(0, 10),
   });
 }

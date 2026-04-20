@@ -17,10 +17,10 @@ export function SyncVapiButton() {
       });
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
-      if (data.atualizadas === 0 && data.debug) {
+      if (data.atualizadas === 0) {
         toast.error(
-          `${data.atualizadas} ligações atualizadas`,
-          data.mensagem || `Total: ${data.debug.total_ligacoes_7_dias} · Com ID Vapi: ${data.debug.com_vapi_call_id} · Sem ID: ${data.debug.sem_vapi_call_id}`
+          `${data.atualizadas} atualizadas (total ${data.total || 0}, ${data.erros || 0} erros)`,
+          data.primeiro_erro ? `Primeiro erro: ${data.primeiro_erro}` : (data.mensagem || "sem erros mas não atualizou")
         );
       } else {
         toast.success(
